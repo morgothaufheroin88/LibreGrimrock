@@ -5,11 +5,17 @@
 #include "Steam.h"
 #include "core/Exception.h"
 #include "core/FileSystem.h"
+#include "core/SharedPtr.h"
 #include "core/Sys.h"
 #include "core/TextFile.h"
 #include "sys.h"
 #include <SDL2/SDL.h>
+#include <csignal>
+#include <cstdio>
 #include <cstdlib>
+#include <execinfo.h>
+#include <pthread.h>
+#include <unistd.h>
 
 using namespace core;
 
@@ -119,9 +125,62 @@ void RapidEngine::luaError(const char* message)
     exit(-1);
 }
 
+// Debugging aid (GRIMROCK_DEBUG_STALLS=<ms>): a watchdog thread interrupts the main thread
+// with SIGUSR1 when a frame takes longer than the given time and prints its backtrace, and
+// the frame time is logged afterwards.
+static volatile unsigned long g_frameCounter = 0;
+static pthread_t g_mainThread;
+static int g_stallThresholdMs = 0;
+
+static void stallSignalHandler(int)
+{
+    void* frames[64];
+    int count = backtrace(frames, 64);
+    const char msg[] = "--- stall: main thread backtrace ---\n";
+    if (write(2, msg, sizeof(msg) - 1) < 0)
+        return;
+    backtrace_symbols_fd(frames, count, 2);
+}
+static void* stallWatchdog(void*)
+{
+    unsigned long last = g_frameCounter;
+    long long since = sysClock();
+    bool reported = false;
+    for (;;)
+    {
+        usleep(50000);
+        unsigned long now = g_frameCounter;
+        if (now != last)
+        {
+            last = now;
+            since = sysClock();
+            reported = false;
+        }
+        else if (!reported && sysGetSeconds(sysClock() - since) * 1000.0 > g_stallThresholdMs)
+        {
+            reported = true;
+            pthread_kill(g_mainThread, SIGUSR1);
+        }
+    }
+    return 0;
+}
+static void startStallWatchdog()
+{
+    const char* threshold = getenv("GRIMROCK_DEBUG_STALLS");
+    if (!threshold)
+        return;
+    g_stallThresholdMs = atoi(threshold) > 0 ? atoi(threshold) : 500;
+    g_mainThread = pthread_self();
+    signal(SIGUSR1, stallSignalHandler);
+    pthread_t thread;
+    pthread_create(&thread, 0, stallWatchdog, 0);
+    pthread_detach(thread);
+}
+
 // 0x0812c950
 void RapidEngine::enterMainLoop()
 {
+    startStallWatchdog();
     if (fileExists("init.lua"))
         setProjectPath(String("init.lua"));
     for (;;)
@@ -170,6 +229,30 @@ void RapidEngine::enterMainLoop()
                 break;
             }
             callDisplayFunc(L, traceback);
+            ++g_frameCounter;
+            if (g_stallThresholdMs)
+            {
+                static double nextReport = 0.0;
+                double now = sysGetSeconds(sysClock());
+                if (now >= nextReport)
+                {
+                    nextReport = now + 10.0;
+                    FILE* statm = fopen("/proc/self/statm", "r");
+                    long pages = 0, resident = 0;
+                    if (statm)
+                    {
+                        if (fscanf(statm, "%ld %ld", &pages, &resident) != 2)
+                            resident = 0;
+                        fclose(statm);
+                    }
+                    debugPrint("--- heap: lua %d KB, rss %ld MB, shared objects %d\n",
+                               lua_gc(L, LUA_GCCOUNT, 0), resident * 4096 / (1024 * 1024),
+                               SharedPtrBase::objectCount());
+                }
+                double frameMs = sysGetSeconds(sysClock()) * 1000.0 - start * 1000.0;
+                if (frameMs > g_stallThresholdMs)
+                    debugPrint("--- stall: frame took %.0f ms\n", frameMs);
+            }
             // frame rate limiter
             int fps = m_maxFrameRate;
             if (fps <= 0)

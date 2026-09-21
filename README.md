@@ -174,7 +174,12 @@ Debugging aids (all off by default): `GRIMROCK_CAPTURE_DIR=<dir>` saves the next
 frame to `<dir>/capture.png` when `<dir>/take` exists
 (`tools/devtest/cap.sh`, independent of the compositor);
 `GRIMROCK_DEBUG_LIGHTS=1` dumps the scene lights, `GRIMROCK_DEBUG_AUDIO=1`
-logs starving audio streams; `tools/devtest/lua.sh` pastes Lua into the in-game
+logs stream files, end-of-stream events and starving streams;
+`GRIMROCK_DEBUG_STALLS=<ms>` starts a watchdog thread that prints the main
+thread's backtrace when a frame takes longer than the given time (plus the
+Lua heap, RSS and live shared object count every 10 s — for the Steam copy
+put `GRIMROCK_DEBUG_STALLS=500 %command%` into the launch options and read
+`~/.local/share/Steam/logs/console-linux.txt`); `tools/devtest/lua.sh` pastes Lua into the in-game
 console (`console = true` in `grimrock.cfg`, opened with the backslash key);
 `-DGRIMROCK_PATTERN_INIT_FILES=a.cpp;b.cpp` compiles the listed sources with
 pattern-initialised locals.

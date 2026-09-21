@@ -70,6 +70,8 @@ if(RAPID_SOURCES AND LUAJIT_INCLUDE_DIR AND LUAJIT_LIBRARY)
     target_include_directories(grimrock PRIVATE ${LUAJIT_INCLUDE_DIR})
     target_link_libraries(grimrock PRIVATE grimrock_engine ${LUAJIT_LIBRARY} ${CMAKE_DL_LIBS})
     target_compile_options(grimrock PRIVATE -Wall -Wextra -Wno-unused-parameter)
+    # symbol names in the stall watchdog's backtraces (GRIMROCK_DEBUG_STALLS)
+    target_link_options(grimrock PRIVATE -rdynamic)
     # lib64/ next to the executable holds libraries the Steam Linux Runtime lacks (see
     # tools/deploy_steam.sh); a plain build only needs $ORIGIN for libsteam_api.so.
     set_target_properties(grimrock PROPERTIES BUILD_RPATH "$ORIGIN/lib64:$ORIGIN"
