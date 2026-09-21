@@ -141,11 +141,18 @@ i386 binary is limited to:
   (120 in the shipped config) has passed. The cap is now the refresh rate of
   the display and the wait sleeps instead of burning a core; with vertical sync
   on, the swap does the pacing anyway.
-- **GPU selection**: on hybrid Intel/NVIDIA laptops `main()` requests PRIME
-  render offload when the NVIDIA GLX library is installed, so the game renders
-  on the discrete GPU (as the Steam client's "Run with NVIDIA" option does).
-  `GRIMROCK_GPU=integrated` or a preset `__GLX_VENDOR_LIBRARY_NAME` keeps the
-  default; the GL vendor is printed at startup.
+- **GPU selection** (`src/rapid/GpuSelect.cpp`): on systems with more than
+  one GPU the game renders on the discrete one. The DRM devices in sysfs are
+  inspected; when the GPU that drives the display is an Intel integrated GPU,
+  reports less dedicated memory than the other GPU, or is an AMD APU next to an
+  NVIDIA GPU, render offload is requested for the other GPU — through
+  `DRI_PRIME=pci-…` for Mesa drivers (AMD, Intel, nouveau) or
+  `__NV_PRIME_RENDER_OFFLOAD`/`__GLX_VENDOR_LIBRARY_NAME` for the proprietary
+  NVIDIA driver. A desktop whose discrete GPU already drives the display and
+  single-GPU systems are left alone. `GRIMROCK_GPU=integrated` keeps the
+  display GPU, `GRIMROCK_GPU=<pci address>` (e.g. `0000:01:00.0`) picks a
+  device, and a preset `DRI_PRIME` or `__GLX_VENDOR_LIBRARY_NAME` is
+  respected. The chosen GPU and the GL renderer are printed at startup.
 - A handful of real bugs of the original are fixed where they corrupt memory
   (`String::erase` over-read, a use-after-free of a mesh source copy) or leak
   (Steam tag arrays); each is commented at the site.

@@ -1,4 +1,5 @@
 // Reconstructed from Grimrock.bin.x86 main.cpp (0x0815dff0).
+#include "GpuSelect.h"
 #include "RapidEngine.h"
 #include "core/ArchiveFileSystem.h"
 #include "core/Exception.h"
@@ -8,7 +9,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <dlfcn.h>
 #include <unistd.h>
 
 // ARC4 key of grimrock.dat (0x0815dff0).
@@ -27,32 +27,9 @@ static void changeToExeDir()
         fprintf(stderr, "chdir(%s) failed\n", base);
 }
 
-// On hybrid (Intel + NVIDIA) laptops GLX picks the integrated GPU unless PRIME render
-// offload is requested through the environment. When the NVIDIA GLX vendor library is
-// installed and the user did not choose a vendor, ask for the discrete GPU (like the
-// Steam client does with its "Run with NVIDIA" launch option). GRIMROCK_GPU=integrated
-// keeps the default.
-static void selectDiscreteGPU()
-{
-    const char* choice = getenv("GRIMROCK_GPU");
-    if (getenv("__GLX_VENDOR_LIBRARY_NAME") || (choice && strcmp(choice, "integrated") == 0))
-        return;
-    // found through the loader's search path so it also works inside the Steam Linux
-    // Runtime container, where the host driver is mapped to a different directory
-    void* nvidiaGLX = dlopen("libGLX_nvidia.so.0", RTLD_LAZY | RTLD_NOLOAD);
-    if (!nvidiaGLX)
-        nvidiaGLX = dlopen("libGLX_nvidia.so.0", RTLD_LAZY);
-    if (!nvidiaGLX)
-        return;
-    dlclose(nvidiaGLX);
-    setenv("__NV_PRIME_RENDER_OFFLOAD", "1", 0);
-    setenv("__GLX_VENDOR_LIBRARY_NAME", "nvidia", 0);
-    setenv("__VK_LAYER_NV_optimus", "NVIDIA_only", 0);
-}
-
 int main(int argc, char** argv)
 {
-    selectDiscreteGPU();
+    selectRenderGPU();
     changeToExeDir();
     try
     {
