@@ -1,0 +1,3 @@
+#!/bin/sh
+# sidebyside with the inlined SharedPtr/Array noise stripped
+python3 "$(dirname "$0")/sidebyside.py" "$@" | grep -v "0x811c9dc5\|0x1000193\|sm_refcount\|_DAT_082c1780\|operator_delete(puVar\|^LAB_\|goto LAB_\|^\s*}\s*$\|^  \*(undefined4 \*)(this + 0x[0-9a-f]*) = 0;$\|uVar[0-9]* = (uVar[0-9]* >> 8 ^ uVar[0-9]*) & 0xff;\|while (local_[0-9a-f]* != pMVar\|puVar[0-9]* = puVar[0-9]* + 2;\|puVar[0-9]* = (uint \*)puVar[0-9]*\[2\];\|pMVar[0-9]* = (Material \*)\*puVar\|\*puVar[0-9]* = puVar[0-9]*\[2\];\|if (puVar[0-9]* == (uint \*)0x0) goto\|if (puVar[0-9]* != (uint \*)0x0) {\|puVar[0-9]* = &core::SharedPtrBase\|puVar[0-9]* = (uint \*)(&core::SharedPtrBase\|local_[0-9a-f]* = (Material \*)\*puVar"
