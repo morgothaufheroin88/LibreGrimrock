@@ -63,6 +63,8 @@ void createWeakTable(lua_State* L, const char* mode);
 int checkEnum(lua_State* L, int index, const Enum* enums);
 // Pushes the name of value, or "???" when it is not in the table.
 void pushEnum(lua_State* L, int value, const Enum* enums);
+// grimrock2.exe 0x0042f380: number of live proxies in rapid.object_map
+int proxyCount(lua_State* L);
 
 // Proxy access.
 Proxy* checkProxy(lua_State* L, int index);

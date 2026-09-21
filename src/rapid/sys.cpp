@@ -246,6 +246,39 @@ static int sys_getDesktopDisplayMode(lua_State* L)
     lua_pushnumber(L, height);
     return 2;
 }
+#if GRIMROCK_GAME >= 2
+static luax::Enum g_systemParameters[] = {{"work_area", 0x30}, {0, 0}}; // SPI_GETWORKAREA
+static luax::Enum g_locales[] = {{"default", 0}, {"user", 1}, {0, 0}};
+// grimrock2.exe 0x0040a7e0: left, top, right, bottom of the work area
+static int sys_systemParametersInfo(lua_State* L)
+{
+    luax::checkEnum(L, 1, g_systemParameters);
+    int left, top, right, bottom;
+    if (!sysGetWorkArea(left, top, right, bottom))
+        luaL_error(L, "SystemParametersInfo failed");
+    lua_pushnumber(L, left);
+    lua_pushnumber(L, top);
+    lua_pushnumber(L, right);
+    lua_pushnumber(L, bottom);
+    return 4;
+}
+// grimrock2.exe 0x0040aaf0
+static int sys_setLocale(lua_State* L)
+{
+    switch (luax::checkEnum(L, 1, g_locales))
+    {
+    case 0:
+        sysSetLocale(false);
+        break;
+    case 1:
+        sysSetLocale(true);
+        break;
+    default:
+        luaL_error(L, "unknown locale");
+    }
+    return 0;
+}
+#endif
 static int sys_clock(lua_State* L)
 {
     lua_pushnumber(L, sysGetSeconds(sysClock()));
@@ -349,6 +382,65 @@ static int sys_browseFolderDialog(lua_State* L)
     lua_pushstring(L, result.c_str());
     return 1;
 }
+#if GRIMROCK_GAME >= 2
+// grimrock2.exe 0x0040b260
+static int sys_openURL(lua_State* L)
+{
+    sysOpenURL(luaL_checkstring(L, 1));
+    return 0;
+}
+// grimrock2.exe 0x0040b290: bytes
+static int sys_getMemoryStatus(lua_State* L)
+{
+    MemoryStatus status;
+    sysGetMemoryStatus(status);
+    lua_createtable(L, 0, 0);
+    lua_pushnumber(L, (double)status.availablePhysical);
+    lua_setfield(L, -2, "AvailablePhysical");
+    lua_pushnumber(L, (double)status.availableVirtual);
+    lua_setfield(L, -2, "AvailableVirtual");
+    lua_pushnumber(L, (double)status.totalPhysical);
+    lua_setfield(L, -2, "TotalPhysical");
+    lua_pushnumber(L, (double)status.totalVirtual);
+    lua_setfield(L, -2, "TotalVirtual");
+    return 1;
+}
+// grimrock2.exe 0x0040b410: memory in MB, display adapters as GPU0, GPU1, ...
+static int sys_getSystemInfo(lua_State* L)
+{
+    SystemInfo info;
+    sysGetSystemInfo(info);
+    lua_createtable(L, 0, 0);
+    lua_pushstring(L, info.computerName.c_str());
+    lua_setfield(L, -2, "ComputerName");
+    lua_pushstring(L, info.osVersion.c_str());
+    lua_setfield(L, -2, "OSVersion");
+    lua_pushnumber(L, info.oemId);
+    lua_setfield(L, -2, "OEMID");
+    lua_pushnumber(L, info.processorCount);
+    lua_setfield(L, -2, "PhysicalCPUCount");
+    lua_pushnumber(L, info.logicalProcessorCount);
+    lua_setfield(L, -2, "LogicalCPUCount");
+    lua_pushnumber(L, info.pageSize);
+    lua_setfield(L, -2, "PageSize");
+    lua_pushstring(L, info.cpuVendor.c_str());
+    lua_setfield(L, -2, "CPUVendor");
+    lua_pushstring(L, info.cpuBrand.c_str());
+    lua_setfield(L, -2, "CPUBrand");
+    lua_pushnumber(L, (double)(info.totalPhysicalMemory >> 20));
+    lua_setfield(L, -2, "TotalMem");
+    lua_pushnumber(L, (double)(info.availablePhysicalMemory >> 20));
+    lua_setfield(L, -2, "FreeMem");
+    for (int i = 0; i < info.displayDevices.size(); ++i)
+    {
+        lua_pushstring(L, info.displayDevices[i].c_str());
+        char key[8];
+        snprintf(key, sizeof(key), "GPU%d", i);
+        lua_setfield(L, -2, key);
+    }
+    return 1;
+}
+#endif
 static int sys_exit(lua_State* L)
 {
     g_pRapidEngine->quit();
@@ -395,6 +487,13 @@ static int sys_mousePressed(lua_State* L)
     lua_pushboolean(L, g_pMainFrame->isMousePressed(luaL_checkinteger(L, 1)));
     return 1;
 }
+#if GRIMROCK_GAME >= 2
+static int sys_mouseReleased(lua_State* L)
+{
+    lua_pushboolean(L, g_pMainFrame->isMouseReleased(luaL_checkinteger(L, 1)));
+    return 1;
+}
+#endif
 static int sys_mousePos(lua_State* L)
 {
     lua_pushnumber(L, g_pMainFrame->getMouseX());
@@ -493,6 +592,13 @@ static int sys_getClipboard(lua_State* L)
     lua_pushstring(L, sysGetClipboard().c_str());
     return 1;
 }
+#if GRIMROCK_GAME >= 2
+static int sys_proxyCount(lua_State* L)
+{
+    lua_pushnumber(L, luax::proxyCount(L));
+    return 1;
+}
+#endif
 static int sys_createGuid(lua_State* L)
 {
     lua_pushstring(L, sysCreateGuid().c_str());
@@ -518,6 +624,10 @@ void sys_mod(lua_State* L)
                                    {"setApplicationName", sys_setApplicationName},
                                    {"getSystemFolder", sys_getSystemFolder},
                                    {"getDesktopDisplayMode", sys_getDesktopDisplayMode},
+#if GRIMROCK_GAME >= 2
+                                   {"systemParametersInfo", sys_systemParametersInfo},
+                                   {"setLocale", sys_setLocale},
+#endif
                                    {"clock", sys_clock},
                                    {"time", sys_time},
                                    {"deltaTime", sys_deltaTime},
@@ -526,12 +636,20 @@ void sys_mod(lua_State* L)
                                    {"messageBox", sys_messageBox},
                                    {"fileDialog", sys_fileDialog},
                                    {"browseFolderDialog", sys_browseFolderDialog},
+#if GRIMROCK_GAME >= 2
+                                   {"openURL", sys_openURL},
+                                   {"getMemoryStatus", sys_getMemoryStatus},
+                                   {"getSystemInfo", sys_getSystemInfo},
+#endif
                                    {"exit", sys_exit},
                                    {"keyDown", sys_keyDown},
                                    {"keyPressed", sys_keyPressed},
                                    {"getKeyName", sys_getKeyName},
                                    {"mouseDown", sys_mouseDown},
                                    {"mousePressed", sys_mousePressed},
+#if GRIMROCK_GAME >= 2
+                                   {"mouseReleased", sys_mouseReleased},
+#endif
                                    {"mousePos", sys_mousePos},
                                    {"displayFunc", sys_displayFunc},
                                    {"compress", sys_compress},
@@ -542,6 +660,9 @@ void sys_mod(lua_State* L)
                                    {"setClipboard", sys_setClipboard},
                                    {"getClipboard", sys_getClipboard},
                                    {"createGuid", sys_createGuid},
+#if GRIMROCK_GAME >= 2
+                                   {"proxyCount", sys_proxyCount},
+#endif
                                    {0, 0}};
     g_startTime = sysClock();
     luax::registerFunctions(L, functions);

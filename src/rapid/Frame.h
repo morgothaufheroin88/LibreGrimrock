@@ -62,6 +62,12 @@ class Frame : public core::EventHandler
     {
         return m_mousePressed[button];
     }
+#if GRIMROCK_GAME >= 2
+    bool isMouseReleased(int button) const
+    {
+        return m_mouseReleased[button];
+    }
+#endif
     bool isKeyDown(int key) const
     {
         return m_keyDown[key & (NumKeys - 1)];
@@ -82,6 +88,9 @@ class Frame : public core::EventHandler
     int m_mouseY;
     bool m_mouseDown[NumMouseButtons];
     bool m_mousePressed[NumMouseButtons];
+#if GRIMROCK_GAME >= 2
+    bool m_mouseReleased[NumMouseButtons]; // grimrock2.exe Frame+0x27a
+#endif
     bool m_keyDown[NumKeys];
     bool m_keyPressed[NumKeys];
 };

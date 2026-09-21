@@ -5,14 +5,20 @@
 #include "core/Exception.h"
 #include "core/FileSystem.h"
 #include <SDL3/SDL.h>
+#include <clocale>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <sys/sysinfo.h>
 #include <sys/time.h>
+#include <sys/utsname.h>
 #include <unistd.h>
+#if defined(__x86_64__) || defined(__i386__)
+#include <cpuid.h>
+#endif
 
 namespace core
 {
@@ -249,9 +255,116 @@ float sysGetDisplayRefreshRate()
     const SDL_DisplayMode* mode = SDL_GetDesktopDisplayMode(display);
     return mode ? mode->refresh_rate : 0.0f;
 }
+// grimrock2.exe 0x00450c10
+void sysGetSystemInfo(SystemInfo& info)
+{
+    char hostname[256] = "";
+    gethostname(hostname, sizeof(hostname) - 1);
+    info.computerName = hostname;
+    struct utsname name;
+    if (uname(&name) == 0)
+        info.osVersion = formatString("%s %s", name.sysname, name.release);
+    info.oemId = 0;
+    info.pageSize = (unsigned int)sysconf(_SC_PAGESIZE);
+    info.processorCount = (unsigned int)sysconf(_SC_NPROCESSORS_ONLN);
+    info.logicalProcessorCount = info.processorCount;
+    info.cpuVendor = "";
+    info.cpuBrand = "";
+#if defined(__x86_64__) || defined(__i386__)
+    unsigned int eax, ebx, ecx, edx;
+    if (__get_cpuid(0, &eax, &ebx, &ecx, &edx))
+    {
+        char vendor[13];
+        memcpy(vendor, &ebx, 4);
+        memcpy(vendor + 4, &edx, 4);
+        memcpy(vendor + 8, &ecx, 4);
+        vendor[12] = 0;
+        info.cpuVendor = vendor;
+    }
+    if (__get_cpuid(0x80000000u, &eax, &ebx, &ecx, &edx) && eax >= 0x80000004u)
+    {
+        char brand[49];
+        unsigned int* words = (unsigned int*)brand;
+        for (unsigned int i = 0; i < 3; ++i)
+            __get_cpuid(0x80000002u + i, &words[i * 4], &words[i * 4 + 1], &words[i * 4 + 2],
+                        &words[i * 4 + 3]);
+        brand[48] = 0;
+        info.cpuBrand = brand;
+    }
+#endif
+    MemoryStatus memory;
+    sysGetMemoryStatus(memory);
+    info.totalPhysicalMemory = memory.totalPhysical;
+    info.availablePhysicalMemory = memory.availablePhysical;
+    // the original lists the display adapters; the DRM devices are the equivalent
+    info.displayDevices.clear();
+    for (int i = 0; i < 16; ++i)
+    {
+        String device = formatString("/sys/class/drm/card%d/device", i);
+        if (!sysFileExists(device.c_str()))
+            continue;
+        String ids;
+        const char* files[2] = {"vendor", "device"};
+        for (int k = 0; k < 2; ++k)
+        {
+            FILE* file = fopen(formatString("%s/%s", device.c_str(), files[k]).c_str(), "r");
+            if (!file)
+                continue;
+            char line[64] = "";
+            if (fgets(line, sizeof(line), file))
+            {
+                line[strcspn(line, "\r\n")] = 0;
+                ids.append(line);
+                ids.append(" ");
+            }
+            fclose(file);
+        }
+        info.displayDevices.push_back(
+            formatString("Device name: card%d\nDevice string: %s\n", i, ids.c_str()));
+    }
+}
+// grimrock2.exe 0x0040b290 (GlobalMemoryStatusEx)
+void sysGetMemoryStatus(MemoryStatus& status)
+{
+    struct sysinfo si;
+    memset(&si, 0, sizeof(si));
+    sysinfo(&si);
+    status.totalPhysical = (unsigned long long)si.totalram * si.mem_unit;
+    status.availablePhysical = (unsigned long long)si.freeram * si.mem_unit;
+    status.totalVirtual = status.totalPhysical + (unsigned long long)si.totalswap * si.mem_unit;
+    status.availableVirtual =
+        status.availablePhysical + (unsigned long long)si.freeswap * si.mem_unit;
+}
+// grimrock2.exe 0x0040b260 (ShellExecute "open")
+void sysOpenURL(const char* url)
+{
+    String command = formatString("xdg-open '%s' >/dev/null 2>&1 &", url);
+    if (system(command.c_str()) != 0)
+        debugPrint("sysOpenURL: could not open %s\n", url);
+}
+bool sysGetWorkArea(int& left, int& top, int& right, int& bottom)
+{
+    SDL_Rect rect;
+    if (!SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &rect))
+        return false;
+    left = rect.x;
+    top = rect.y;
+    right = rect.x + rect.w;
+    bottom = rect.y + rect.h;
+    return true;
+}
+// grimrock2.exe 0x0040aaf0: "C" or the language_COUNTRY.codepage of the user
+void sysSetLocale(bool user)
+{
+    setlocale(LC_ALL, user ? "" : "C");
+}
+
 // 0x080cc570
 int sysMessageBox(const char* title, const char* message, MessageBoxType type)
 {
+    // the text also goes to the log, the dialog is easy to miss
+    debugPrint("%s: %s\n", title, message);
+    fflush(stdout);
     SDL_MessageBoxButtonData buttons[3];
     int numButtons = 1;
     buttons[0].flags = SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT;

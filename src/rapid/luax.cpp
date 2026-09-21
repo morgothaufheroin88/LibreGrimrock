@@ -403,6 +403,22 @@ void createObjectRaw(lua_State* L, const char* className, void* object, void (*d
     lua_pop(L, 1);
 }
 
+// grimrock2.exe 0x0042f380
+int proxyCount(lua_State* L)
+{
+    lua_getfield(L, LUA_REGISTRYINDEX, "rapid.object_map");
+    int table = lua_gettop(L);
+    int count = 0;
+    lua_pushnil(L);
+    while (lua_next(L, table) != 0)
+    {
+        ++count;
+        lua_settop(L, -2);
+    }
+    lua_settop(L, table - 1);
+    return count;
+}
+
 // 0x08155f40
 void pushObject(lua_State* L, void* object)
 {

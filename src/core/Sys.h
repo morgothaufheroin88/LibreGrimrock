@@ -53,4 +53,36 @@ void sysGetDesktopDisplayMode(int& width, int& height);
 float sysGetDisplayRefreshRate();
 int sysMessageBox(const char* title, const char* message, MessageBoxType type);
 
+// Grimrock 2 additions (grimrock2.exe Sys.cpp). SystemInfo mirrors the Win32 structure the
+// original fills from GetComputerName/GetVersionEx/GetSystemInfo/cpuid/GlobalMemoryStatusEx/
+// EnumDisplayDevices (0x00450c10).
+struct SystemInfo
+{
+    String computerName;
+    String osVersion;
+    unsigned int oemId;
+    unsigned int processorCount;
+    unsigned int logicalProcessorCount;
+    unsigned int pageSize;
+    String cpuVendor;
+    String cpuBrand;
+    unsigned long long totalPhysicalMemory;
+    unsigned long long availablePhysicalMemory;
+    Array<String> displayDevices;
+};
+struct MemoryStatus
+{
+    unsigned long long availablePhysical;
+    unsigned long long availableVirtual;
+    unsigned long long totalPhysical;
+    unsigned long long totalVirtual;
+};
+void sysGetSystemInfo(SystemInfo& info);
+void sysGetMemoryStatus(MemoryStatus& status);
+void sysOpenURL(const char* url);
+// Desktop area not covered by panels (SystemParametersInfo(SPI_GETWORKAREA)).
+bool sysGetWorkArea(int& left, int& top, int& right, int& bottom);
+// setlocale for the whole process: "C" or the user's locale.
+void sysSetLocale(bool user);
+
 } // namespace core

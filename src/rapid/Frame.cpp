@@ -147,6 +147,9 @@ Frame::Frame() : m_window(0), m_focus(true), m_minimized(false), m_mouseX(0), m_
 {
     memset(m_mouseDown, 0, sizeof(m_mouseDown));
     memset(m_mousePressed, 0, sizeof(m_mousePressed));
+#if GRIMROCK_GAME >= 2
+    memset(m_mouseReleased, 0, sizeof(m_mouseReleased));
+#endif
     memset(m_keyDown, 0, sizeof(m_keyDown));
     memset(m_keyPressed, 0, sizeof(m_keyPressed));
     sm_frames.push_back(this);
@@ -174,6 +177,9 @@ bool Frame::handle(ResizeEvent* e)
 void Frame::updateInput()
 {
     memset(m_mousePressed, 0, sizeof(m_mousePressed));
+#if GRIMROCK_GAME >= 2
+    memset(m_mouseReleased, 0, sizeof(m_mouseReleased));
+#endif
     memset(m_keyPressed, 0, sizeof(m_keyPressed));
 }
 // 0x0815ba60
@@ -206,6 +212,10 @@ bool Frame::dispatch(Event* e)
         m_mouseY = button->y;
         if (!button->pressed)
         {
+#if GRIMROCK_GAME >= 2
+            if (m_mouseDown[button->button])
+                m_mouseReleased[button->button] = true;
+#endif
             m_mouseDown[button->button] = false;
         }
         else
@@ -498,13 +508,29 @@ static int Frame_pollEvents(lua_State* L)
     return 1;
 }
 
-static const luaL_Reg Frame_methods[] = {
-    {"create", Frame_create},           {"setTitle", Frame_setTitle},
-    {"setMenuBar", Frame_setMenuBar},   {"setCursor", Frame_setCursor},
-    {"showCursor", Frame_showCursor},   {"setMouseMotionMode", Frame_setMouseMotionMode},
-    {"hasFocus", Frame_hasFocus},       {"hide", Frame_hide},
-    {"getPosition", Frame_getPosition}, {"getSize", Frame_getSize},
-    {"pollEvents", Frame_pollEvents},   {0, 0}};
+#if GRIMROCK_GAME >= 2
+// grimrock2.exe 0x00408bf0
+static int Frame_pumpMessages(lua_State* L)
+{
+    Frame::updateFrames();
+    return 0;
+}
+#endif
+static const luaL_Reg Frame_methods[] = {{"create", Frame_create},
+                                         {"setTitle", Frame_setTitle},
+                                         {"setMenuBar", Frame_setMenuBar},
+                                         {"setCursor", Frame_setCursor},
+                                         {"showCursor", Frame_showCursor},
+                                         {"setMouseMotionMode", Frame_setMouseMotionMode},
+                                         {"hasFocus", Frame_hasFocus},
+                                         {"hide", Frame_hide},
+                                         {"getPosition", Frame_getPosition},
+                                         {"getSize", Frame_getSize},
+                                         {"pollEvents", Frame_pollEvents},
+#if GRIMROCK_GAME >= 2
+                                         {"pumpMessages", Frame_pumpMessages},
+#endif
+                                         {0, 0}};
 
 // ---- Menu ------------------------------------------------------------------------
 

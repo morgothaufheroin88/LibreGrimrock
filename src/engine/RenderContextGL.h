@@ -199,6 +199,12 @@ class RenderContextGL
 
     static GLuint compileShader(const char* source, GLenum type, const char* const* defines,
                                 const char* name);
+#if GRIMROCK_GAME >= 2
+    // grimrock2.exe 0x004e20e0: expands #include "file" (relative to the including file,
+    // then to shaderDir) with #line directives; includeCount numbers the files.
+    static void preprocessShader(const char* filename, const char* shaderDir, core::String& out,
+                                 int& includeCount);
+#endif
     static GLuint compileShaderFromFile(const char* filename, GLenum type,
                                         const char* const* defines);
     // D3D clip space (z in [0,1]) to GL clip space (z in [-1,1]).

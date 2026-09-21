@@ -51,43 +51,70 @@ else()
     list(REMOVE_ITEM RAPID_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/rapid/Steam.cpp)
 endif()
 
-add_library(grimrock_core ${CORE_SOURCES})
-target_include_directories(grimrock_core PUBLIC src)
-# stb_image / stb_image_write (public domain, vendored)
-target_include_directories(grimrock_core SYSTEM PRIVATE third_party)
-target_compile_options(grimrock_core PRIVATE -Wall -Wextra -Wno-unused-parameter)
-target_link_libraries(grimrock_core PUBLIC ZLIB::ZLIB SDL3::SDL3 PkgConfig::MINIZIP Threads::Threads)
-target_compile_options(grimrock_core PRIVATE -Wall -Wextra -Wno-unused-parameter)
+# Legend of Grimrock 2 (grimrock2.exe) is built from the same tree with GRIMROCK_GAME=2.
+# src2/ mirrors src/: a file there replaces the file of the same name in src/ (compilation
+# units that diverged too far for #if) or adds a unit that only exists in the second game.
+# Small differences inside shared units are guarded with GRIMROCK_GAME.
+function(game_sources OUT SHARED SUBDIR)
+    file(GLOB OVERRIDES CONFIGURE_DEPENDS src2/${SUBDIR}/*.cpp src2/${SUBDIR}/*.c)
+    set(RESULT "")
+    foreach(source ${SHARED})
+        get_filename_component(name ${source} NAME)
+        if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src2/${SUBDIR}/${name})
+            continue()
+        endif()
+        list(APPEND RESULT ${source})
+    endforeach()
+    set(${OUT} ${RESULT} ${OVERRIDES} PARENT_SCOPE)
+endfunction()
 
-if(ENGINE_SOURCES)
-    add_library(grimrock_engine ${ENGINE_SOURCES})
-    target_link_libraries(grimrock_engine PUBLIC grimrock_core OpenGL::GL PkgConfig::GLEW
+# add_game(<game number> <executable> <core lib> <engine lib> <core sources> <engine sources> <rapid sources> <include dirs>)
+function(add_game GAME EXE CORE ENGINE CORE_SRC ENGINE_SRC RAPID_SRC INCLUDES)
+    add_library(${CORE} ${CORE_SRC})
+    target_include_directories(${CORE} PUBLIC ${INCLUDES})
+    # stb_image / stb_image_write (public domain, vendored)
+    target_include_directories(${CORE} SYSTEM PRIVATE third_party)
+    target_compile_definitions(${CORE} PUBLIC GRIMROCK_GAME=${GAME})
+    target_compile_options(${CORE} PRIVATE -Wall -Wextra -Wno-unused-parameter)
+    target_link_libraries(${CORE} PUBLIC ZLIB::ZLIB SDL3::SDL3 PkgConfig::MINIZIP Threads::Threads)
+
+    add_library(${ENGINE} ${ENGINE_SRC})
+    target_link_libraries(${ENGINE} PUBLIC ${CORE} OpenGL::GL PkgConfig::GLEW
                           PkgConfig::FREETYPE PkgConfig::OPENAL PkgConfig::VORBISFILE)
-    target_compile_options(grimrock_engine PRIVATE -Wall -Wextra -Wno-unused-parameter)
-endif()
+    target_compile_options(${ENGINE} PRIVATE -Wall -Wextra -Wno-unused-parameter)
 
-if(RAPID_SOURCES AND LUAJIT_INCLUDE_DIR AND LUAJIT_LIBRARY)
-    add_executable(grimrock ${RAPID_SOURCES})
-    target_include_directories(grimrock PRIVATE ${LUAJIT_INCLUDE_DIR})
-    target_link_libraries(grimrock PRIVATE grimrock_engine ${LUAJIT_LIBRARY} ${CMAKE_DL_LIBS})
-    target_compile_options(grimrock PRIVATE -Wall -Wextra -Wno-unused-parameter)
-    # symbol names in the stall watchdog's backtraces (GRIMROCK_DEBUG_STALLS)
-    target_link_options(grimrock PRIVATE -rdynamic)
-    # lib64/ next to the executable holds libraries the Steam Linux Runtime lacks (see
-    # tools/deploy_steam.sh); a plain build only needs $ORIGIN for libsteam_api.so.
-    set_target_properties(grimrock PROPERTIES BUILD_RPATH "$ORIGIN/lib64:$ORIGIN"
-                                              INSTALL_RPATH "$ORIGIN/lib64:$ORIGIN")
-    if(GRIMROCK_HAVE_STEAM)
-        # headers plus the redistributable libsteam_api.so, copied next to the executable
-        # like the original's lib/ directory
-        target_include_directories(grimrock PRIVATE ${STEAMWORKS_DIR})
-        target_link_libraries(grimrock PRIVATE ${STEAMWORKS_DIR}/linux64/libsteam_api.so)
-        add_custom_command(TARGET grimrock POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    ${STEAMWORKS_DIR}/linux64/libsteam_api.so $<TARGET_FILE_DIR:grimrock>)
+    if(LUAJIT_INCLUDE_DIR AND LUAJIT_LIBRARY)
+        add_executable(${EXE} ${RAPID_SRC})
+        target_include_directories(${EXE} PRIVATE ${LUAJIT_INCLUDE_DIR})
+        # "Frame.h" style includes of the Lua layer resolve through the overlay as well
+        foreach(dir ${INCLUDES})
+            target_include_directories(${EXE} PRIVATE ${dir}/rapid)
+        endforeach()
+        target_link_libraries(${EXE} PRIVATE ${ENGINE} ${LUAJIT_LIBRARY} ${CMAKE_DL_LIBS})
+        target_compile_options(${EXE} PRIVATE -Wall -Wextra -Wno-unused-parameter)
+        # symbol names in the stall watchdog's backtraces (GRIMROCK_DEBUG_STALLS)
+        target_link_options(${EXE} PRIVATE -rdynamic)
+        # lib64/ next to the executable holds libraries the Steam Linux Runtime lacks (see
+        # tools/deploy_steam.sh); a plain build only needs $ORIGIN for libsteam_api.so.
+        set_target_properties(${EXE} PROPERTIES BUILD_RPATH "$ORIGIN/lib64:$ORIGIN"
+                                                INSTALL_RPATH "$ORIGIN/lib64:$ORIGIN")
+        if(GRIMROCK_HAVE_STEAM)
+            # headers plus the redistributable libsteam_api.so, copied next to the executable
+            # like the original's lib/ directory
+            target_include_directories(${EXE} PRIVATE ${STEAMWORKS_DIR})
+            target_link_libraries(${EXE} PRIVATE ${STEAMWORKS_DIR}/linux64/libsteam_api.so)
+            add_custom_command(TARGET ${EXE} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        ${STEAMWORKS_DIR}/linux64/libsteam_api.so $<TARGET_FILE_DIR:${EXE}>)
+        endif()
     endif()
-endif()
+endfunction()
 
+add_game(1 grimrock grimrock_core grimrock_engine "${CORE_SOURCES}" "${ENGINE_SOURCES}" "${RAPID_SOURCES}" src)
+game_sources(CORE2_SOURCES "${CORE_SOURCES}" core)
+game_sources(ENGINE2_SOURCES "${ENGINE_SOURCES}" engine)
+game_sources(RAPID2_SOURCES "${RAPID_SOURCES}" rapid)
+add_game(2 grimrock2 grimrock2_core grimrock2_engine "${CORE2_SOURCES}" "${ENGINE2_SOURCES}" "${RAPID2_SOURCES}" "src2;src")
 
 enable_testing()
 file(GLOB TEST_SOURCES CONFIGURE_DEPENDS tests/*_test.cpp)
