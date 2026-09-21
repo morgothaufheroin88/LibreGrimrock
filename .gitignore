@@ -1,0 +1,21 @@
+# build trees
+build*/
+compile_commands.json
+.cache/
+
+# not redistributable: Ghidra pseudocode of the original binary, decompiled game
+# scripts and the extracted archive (see README, "Reverse engineering workflow")
+reverse/
+recovered/
+
+# fetched by tools/fetch_deps.sh
+third_party/luajit/
+third_party/steamworks/
+third_party/steamworks-1.23a/
+tools/LuaJIT-original/
+tools/LuaJIT-2.0/
+tools/ljd/
+tools/luajit-decompiler/
+
+__pycache__/
+*.pyc
