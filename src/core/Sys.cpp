@@ -234,7 +234,19 @@ void sysGetDesktopDisplayMode(int& width, int& height)
 }
 float sysGetDisplayRefreshRate()
 {
-    const SDL_DisplayMode* mode = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
+    // the display showing the game window, the primary one before the window exists
+    SDL_DisplayID display = 0;
+    int numWindows = 0;
+    SDL_Window** windows = SDL_GetWindows(&numWindows);
+    if (windows)
+    {
+        if (numWindows > 0)
+            display = SDL_GetDisplayForWindow(windows[0]);
+        SDL_free(windows);
+    }
+    if (display == 0)
+        display = SDL_GetPrimaryDisplay();
+    const SDL_DisplayMode* mode = SDL_GetDesktopDisplayMode(display);
     return mode ? mode->refresh_rate : 0.0f;
 }
 // 0x080cc570

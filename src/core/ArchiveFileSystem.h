@@ -39,7 +39,7 @@ class ArchiveFile : public File
 
   private:
     String m_filename;
-    ArchiveFileSystem* m_pArchive;
+    [[maybe_unused]] ArchiveFileSystem* m_pArchive; // owner, kept for the original layout
     const char* m_pData;
     char* m_pBuffer; // owned decoded data, if any
     int m_pos;

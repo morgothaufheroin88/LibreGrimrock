@@ -134,7 +134,7 @@ class CameraControls : public core::EventHandler
     }
 
   private:
-    core::Window* m_pWindow;
+    [[maybe_unused]] core::Window* m_pWindow; // kept for the original layout
     Camera* m_pCamera;
     core::Average<float> m_mouseX;
     core::Average<float> m_mouseY;

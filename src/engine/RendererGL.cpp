@@ -116,6 +116,15 @@ void RenderContextSDL::swapBuffers()
         int x, y, width, height, windowWidth, windowHeight;
         m_pCoreWindow->getPresentationRect(x, y, width, height);
         SDL_GetWindowSizeInPixels(m_pWindow, &windowWidth, &windowHeight);
+        // the presentation rectangle is in window coordinates, the blit in pixels
+        float pixelDensity = SDL_GetWindowPixelDensity(m_pWindow);
+        if (pixelDensity > 0.0f && pixelDensity != 1.0f)
+        {
+            x = (int)lrintf(x * pixelDensity);
+            y = (int)lrintf(y * pixelDensity);
+            width = (int)lrintf(width * pixelDensity);
+            height = (int)lrintf(height * pixelDensity);
+        }
         glBindFramebuffer(GL_READ_FRAMEBUFFER, m_backBuffer);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
         glDisable(GL_SCISSOR_TEST);
@@ -818,7 +827,8 @@ void RendererGL::beginRender()
 void RendererGL::renderScene(Scene& scene, Camera& camera, RenderableTexture* target)
 {
     m_pRenderVisitor->gatherEntities(scene, camera);
-    if (getenv("GRIMROCK_DEBUG_LIGHTS"))
+    static const bool debugLights = getenv("GRIMROCK_DEBUG_LIGHTS") != 0;
+    if (debugLights)
     {
         static int frame = 0;
         if (++frame % 120 == 0)

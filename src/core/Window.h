@@ -129,7 +129,7 @@ class Window
     int m_savedMouseX, m_savedMouseY;
     int m_relMouseX, m_relMouseY;
     SDL_Window* m_pWindow;
-    int m_menuHeight;
+    [[maybe_unused]] int m_menuHeight; // Windows menu bar, kept for the original layout
     std::map<SDL_Scancode, int> m_keyMap;
 };
 

@@ -176,6 +176,20 @@ static void startStallWatchdog()
     pthread_detach(thread);
 }
 
+// Refresh rate of the display the window is on, re-read once a second (the window may
+// be moved to another display).
+static float displayRefreshRate(double now)
+{
+    static float rate = 0.0f;
+    static double nextQuery = 0.0;
+    if (now >= nextQuery)
+    {
+        rate = sysGetDisplayRefreshRate();
+        nextQuery = now + 1.0;
+    }
+    return rate;
+}
+
 // 0x0812c950
 void RapidEngine::enterMainLoop()
 {
@@ -245,7 +259,8 @@ void RapidEngine::enterMainLoop()
                         fclose(statm);
                     }
                     debugPrint("--- heap: lua %d KB, rss %ld MB, shared objects %d\n",
-                               lua_gc(L, LUA_GCCOUNT, 0), resident * 4096 / (1024 * 1024),
+                               lua_gc(L, LUA_GCCOUNT, 0),
+                               resident * sysconf(_SC_PAGESIZE) / (1024 * 1024),
                                SharedPtrBase::objectCount());
                 }
                 double frameMs = sysGetSeconds(sysClock()) * 1000.0 - start * 1000.0;
@@ -256,7 +271,7 @@ void RapidEngine::enterMainLoop()
             // (sys.setMaxFrameRate, 120 in the shipped config); here the cap is the
             // refresh rate of the display, and the wait sleeps instead of burning a core.
             double frameTime = 1.0 / (double)(m_maxFrameRate > 0 ? m_maxFrameRate : 1000);
-            float refreshRate = sysGetDisplayRefreshRate();
+            float refreshRate = displayRefreshRate(start);
             if (refreshRate > 0.0f)
                 frameTime = 1.0 / (double)refreshRate;
             for (;;)

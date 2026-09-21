@@ -35,7 +35,8 @@ void String::reserve(int n)
 void String::push_back(const char* s, int n)
 {
     reserve(m_size + n);
-    memcpy(m_pData + m_size, s, n);
+    if (n > 0)
+        memcpy(m_pData + m_size, s, n);
     m_size += n;
     if (m_pData)
         m_pData[m_size] = 0;

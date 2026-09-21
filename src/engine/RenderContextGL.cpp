@@ -237,9 +237,10 @@ void RenderContextGL::contextCreated()
 {
     glGenFramebuffers(1, &m_frameBuffer);
     const char* version = (const char*)glGetString(GL_VERSION);
-    debugPrint("GL_VERSION: %s\n", version);
+    debugPrint("GL_VERSION: %s\n", version ? version : "");
     float versionNumber = 0.0f;
-    sscanf(version, "%f", &versionNumber);
+    if (version)
+        sscanf(version, "%f", &versionNumber);
     const char* vendor = (const char*)glGetString(GL_VENDOR);
     debugPrint("GL_VENDOR: %s\n", vendor ? vendor : "");
     const char* renderer = (const char*)glGetString(GL_RENDERER);

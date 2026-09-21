@@ -215,7 +215,7 @@ void AnimationController::sample()
 {
     static constexpr int MaxStates = 16;
     AnimationState* states[MaxStates];
-    float weights[MaxStates];
+    float weights[MaxStates] = {};
     int count = 0;
     for (int i = 0; i < m_states.size() && count < MaxStates; ++i)
     {

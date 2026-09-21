@@ -187,12 +187,12 @@ void ParticleEmitter::meshEmitter(ParticleEntity& entity, Particle** particles, 
             {
                 const unsigned char* bones = (const unsigned char*)bi.pData + verts[k] * bi.stride;
                 const float* weights = (const float*)((const char*)bw.pData + verts[k] * bw.stride);
-                Vec3 skinned(0, 0, 0);
+                Vec3 skinnedPos(0, 0, 0);
                 for (int b = 0; b < bi.components && b < 4; ++b)
                     if (weights[b] != 0.0f)
-                        skinned +=
+                        skinnedPos +=
                             skinningMatrices[bones[b]].transformPoint(pos[verts[k]]) * weights[b];
-                *out[k] = skinned;
+                *out[k] = skinnedPos;
             }
         }
         p.pos = pa * u + pb * v + pc * w;
