@@ -150,6 +150,8 @@ void OggDecodingThreadAL::run()
                 {
                     if (read != 0)
                         debugPrint("AudioStreamAL: error while reading (%d)\n", read);
+                    else if (getenv("GRIMROCK_DEBUG_AUDIO"))
+                        debugPrint("AudioStreamAL: end of stream, loop %d\n", m_loop);
                     if (m_loop)
                         ov_raw_seek(&m_file, 0);
                     else
@@ -280,7 +282,11 @@ void SoundSourceAL::playStream(const char* filename)
     stop();
     m_sample.reset(0);
     alGenSources(1, &m_source);
-    m_pStream = new AudioStreamAL(m_source, filename, m_loop);
+    // streams always loop (the original inlines AudioStreamAL(source, filename, true)),
+    // the Loop property of the source only applies to samples
+    m_pStream = new AudioStreamAL(m_source, filename, true);
+    if (getenv("GRIMROCK_DEBUG_AUDIO"))
+        debugPrint("AudioStreamAL: playStream %s on source %u\n", filename, m_source);
     m_state = Starting;
 }
 // 0x080f6090
