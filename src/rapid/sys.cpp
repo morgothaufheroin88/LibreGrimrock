@@ -434,7 +434,7 @@ static int sys_getSystemInfo(lua_State* L)
     for (int i = 0; i < info.displayDevices.size(); ++i)
     {
         lua_pushstring(L, info.displayDevices[i].c_str());
-        char key[8];
+        char key[16];
         snprintf(key, sizeof(key), "GPU%d", i);
         lua_setfield(L, -2, key);
     }
