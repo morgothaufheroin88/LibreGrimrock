@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <dlfcn.h>
 #include <unistd.h>
 
 // ARC4 key of grimrock.dat (0x0815dff0).
@@ -36,9 +37,14 @@ static void selectDiscreteGPU()
     const char* choice = getenv("GRIMROCK_GPU");
     if (getenv("__GLX_VENDOR_LIBRARY_NAME") || (choice && strcmp(choice, "integrated") == 0))
         return;
-    if (access("/usr/lib64/libGLX_nvidia.so.0", R_OK) != 0 &&
-        access("/usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0", R_OK) != 0)
+    // found through the loader's search path so it also works inside the Steam Linux
+    // Runtime container, where the host driver is mapped to a different directory
+    void* nvidiaGLX = dlopen("libGLX_nvidia.so.0", RTLD_LAZY | RTLD_NOLOAD);
+    if (!nvidiaGLX)
+        nvidiaGLX = dlopen("libGLX_nvidia.so.0", RTLD_LAZY);
+    if (!nvidiaGLX)
         return;
+    dlclose(nvidiaGLX);
     setenv("__NV_PRIME_RENDER_OFFLOAD", "1", 0);
     setenv("__GLX_VENDOR_LIBRARY_NAME", "nvidia", 0);
     setenv("__VK_LAYER_NV_optimus", "NVIDIA_only", 0);
