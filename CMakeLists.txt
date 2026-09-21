@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(ZLIB REQUIRED)
-find_package(SDL2 REQUIRED)
+find_package(SDL3 REQUIRED CONFIG)
 find_package(Threads REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(PkgConfig REQUIRED)
@@ -17,7 +17,6 @@ pkg_check_modules(FREETYPE REQUIRED IMPORTED_TARGET freetype2)
 pkg_check_modules(OPENAL REQUIRED IMPORTED_TARGET openal)
 pkg_check_modules(VORBISFILE REQUIRED IMPORTED_TARGET vorbisfile)
 pkg_check_modules(MINIZIP REQUIRED IMPORTED_TARGET minizip)
-pkg_check_modules(SDL2_IMAGE REQUIRED IMPORTED_TARGET SDL2_image)
 
 # LuaJIT 2.0.0-rc3 (tools/fetch_deps.sh builds it into third_party/luajit); a system LuaJIT
 # 2.0.x also loads the game's bytecode, 2.1 does not.
@@ -54,8 +53,10 @@ endif()
 
 add_library(grimrock_core ${CORE_SOURCES})
 target_include_directories(grimrock_core PUBLIC src)
+# stb_image / stb_image_write (public domain, vendored)
+target_include_directories(grimrock_core SYSTEM PRIVATE third_party)
 target_compile_options(grimrock_core PRIVATE -Wall -Wextra -Wno-unused-parameter)
-target_link_libraries(grimrock_core PUBLIC ZLIB::ZLIB SDL2::SDL2 PkgConfig::MINIZIP PkgConfig::SDL2_IMAGE Threads::Threads)
+target_link_libraries(grimrock_core PUBLIC ZLIB::ZLIB SDL3::SDL3 PkgConfig::MINIZIP Threads::Threads)
 target_compile_options(grimrock_core PRIVATE -Wall -Wextra -Wno-unused-parameter)
 
 if(ENGINE_SOURCES)

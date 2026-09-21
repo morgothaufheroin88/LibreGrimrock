@@ -1,4 +1,4 @@
-// SDL2 window, cursor and event translation, reconstructed from Window.cpp
+// SDL3 window, cursor and event translation, reconstructed from Window.cpp (SDL2 in the original)
 // (0x080cd630-0x080d2860). The original also owned an FLTK menu bar window; menus are
 // kept as data here (see Menu.h).
 #pragma once
@@ -7,7 +7,7 @@
 #include "core/SharedPtr.h"
 #include "core/String.h"
 #include "core/Vector.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <map>
 
 namespace core

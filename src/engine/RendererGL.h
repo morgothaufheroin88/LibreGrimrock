@@ -6,7 +6,7 @@
 #include "engine/RenderContextGL.h"
 #include "engine/Renderer.h"
 #include "engine/Texture.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 namespace core
 {
@@ -42,6 +42,12 @@ class RenderContextSDL : public RenderContextGL
     void createBackBuffer(int width, int height);
     void destroyBackBuffer();
 
+  public:
+    // Creates or drops the back buffer when the window size differs from the frame size
+    // (fullscreen windows take the desktop size after creation).
+    void updateBackBuffer();
+
+  private:
     core::Window* m_pCoreWindow;
     SDL_Window* m_pWindow;
     SDL_GLContext m_context;

@@ -1,5 +1,5 @@
 // 32-bit BGRA image, reconstructed from Image.cpp (0x080ca660-0x080cb710). The original
-// loaded/saved through FreeImage; this build uses SDL2_image for the same formats.
+// loaded/saved through FreeImage; this build uses stb_image for the same formats.
 #pragma once
 #include "core/Color.h"
 

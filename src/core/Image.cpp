@@ -3,9 +3,17 @@
 #include "core/Exception.h"
 #include "core/FileSystem.h"
 #include "core/Sys.h"
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STBI_NO_STDIO
+#define STBI_ONLY_PNG
+#define STBI_ONLY_JPEG
+#define STBI_ONLY_BMP
+#define STBI_ONLY_TGA
+#define STBI_ONLY_GIF
 #include <cstring>
+#include <stb/stb_image.h>
+#include <stb/stb_image_write.h>
 
 namespace core
 {
@@ -15,12 +23,6 @@ Image::Image() : m_width(0), m_height(0), m_pData(0) {}
 // 0x080cb680
 Image::Image(int width, int height) : m_width(width), m_height(height)
 {
-    static bool imageLibInitialized = false;
-    if (!imageLibInitialized)
-    {
-        IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG | IMG_INIT_TIF);
-        imageLibInitialized = true;
-    }
     m_pData = new unsigned char[(size_t)width * height * 4];
     memset(m_pData, 0, (size_t)width * height * 4);
 }
@@ -64,37 +66,29 @@ Image::Image(const char* filename) : m_width(0), m_height(0), m_pData(0)
     {
         throw Exception("Error loading: %s", filename);
     }
-    // The original went through FreeImage: the type from the file signature, then from
-    // the file name (TGA has no signature). SDL_image needs the same two steps.
-    String ext = getFileExtension(filename);
-    ext.toupper();
-    SDL_RWops* rw = SDL_RWFromConstMem(bytes, length);
-    SDL_Surface* loaded = 0;
-    if (IMG_isPNG(rw) || IMG_isJPG(rw) || IMG_isBMP(rw) || IMG_isTIF(rw) || IMG_isGIF(rw))
-        loaded = IMG_Load_RW(rw, 0);
-    if (!loaded)
-    {
-        SDL_RWseek(rw, 0, RW_SEEK_SET);
-        loaded = IMG_LoadTyped_RW(rw, 0, ext.c_str());
-    }
-    SDL_RWclose(rw);
+    // The original went through FreeImage (PNG, JPEG, BMP, TGA, GIF are what the game
+    // ships); stb_image decodes the same formats to RGBA, converted here to the BGRA
+    // layout of Image.
+    int width = 0, height = 0, components = 0;
+    unsigned char* rgba =
+        stbi_load_from_memory((const unsigned char*)bytes, length, &width, &height, &components, 4);
     delete[] bytes;
-    if (!loaded)
+    if (!rgba)
     {
-        debugPrint("IMG_Load(%s): %s\n", filename, IMG_GetError());
+        debugPrint("Image::load(%s): %s\n", filename, stbi_failure_reason());
         throw Exception("Error loading: %s", filename);
     }
-    SDL_Surface* surface = SDL_ConvertSurfaceFormat(loaded, SDL_PIXELFORMAT_ARGB8888, 0);
-    SDL_FreeSurface(loaded);
-    if (!surface)
-        throw Exception("Error loading: %s", filename);
-    m_width = surface->w;
-    m_height = surface->h;
+    m_width = width;
+    m_height = height;
     m_pData = new unsigned char[(size_t)m_width * m_height * 4];
-    for (int y = 0; y < m_height; ++y)
-        memcpy(m_pData + (size_t)y * m_width * 4, (const char*)surface->pixels + y * surface->pitch,
-               (size_t)m_width * 4);
-    SDL_FreeSurface(surface);
+    for (size_t i = 0; i < (size_t)m_width * m_height; ++i)
+    {
+        m_pData[i * 4 + 0] = rgba[i * 4 + 2];
+        m_pData[i * 4 + 1] = rgba[i * 4 + 1];
+        m_pData[i * 4 + 2] = rgba[i * 4 + 0];
+        m_pData[i * 4 + 3] = rgba[i * 4 + 3];
+    }
+    stbi_image_free(rgba);
 }
 
 // 0x080caf90
@@ -102,34 +96,28 @@ void Image::save(const char* filename, bool alpha)
 {
     String ext = getFileExtension(filename);
     ext.tolower();
-    int bpp = alpha ? 32 : 24;
-    SDL_Surface* surface =
-        SDL_CreateRGBSurface(0, m_width, m_height, bpp, PixelMaskRed, PixelMaskGreen, PixelMaskBlue,
-                             alpha ? PixelMaskAlpha : 0);
-    if (!surface)
+    if (ext != "png" && ext != "jpg" && ext != "jpeg" && ext != "bmp")
         throw Exception("Unknown file format: %s", filename);
-    int bytes = bpp / 8;
-    for (int y = 0; y < m_height; ++y)
+    int components = alpha ? 4 : 3;
+    unsigned char* pixels = new unsigned char[(size_t)m_width * m_height * components];
+    for (size_t i = 0; i < (size_t)m_width * m_height; ++i)
     {
-        unsigned char* dst = (unsigned char*)surface->pixels + y * surface->pitch;
-        const unsigned char* src = m_pData + (size_t)y * m_width * 4;
-        for (int x = 0; x < m_width; ++x)
-            memcpy(dst + x * bytes, src + x * 4, bytes);
+        pixels[i * components + 0] = m_pData[i * 4 + 2];
+        pixels[i * components + 1] = m_pData[i * 4 + 1];
+        pixels[i * components + 2] = m_pData[i * 4 + 0];
+        if (alpha)
+            pixels[i * components + 3] = m_pData[i * 4 + 3];
     }
     int result;
     if (ext == "png")
-        result = IMG_SavePNG(surface, filename);
-    else if (ext == "jpg" || ext == "jpeg")
-        result = IMG_SaveJPG(surface, filename, 90);
+        result =
+            stbi_write_png(filename, m_width, m_height, components, pixels, m_width * components);
     else if (ext == "bmp")
-        result = SDL_SaveBMP(surface, filename);
+        result = stbi_write_bmp(filename, m_width, m_height, components, pixels);
     else
-    {
-        SDL_FreeSurface(surface);
-        throw Exception("Unknown file format: %s", filename);
-    }
-    SDL_FreeSurface(surface);
-    if (result != 0)
+        result = stbi_write_jpg(filename, m_width, m_height, components, pixels, 90);
+    delete[] pixels;
+    if (result == 0)
         throw Exception("Error saving: %s", filename);
 }
 

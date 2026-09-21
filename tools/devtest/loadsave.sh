@@ -11,5 +11,5 @@ sleep 10
 X=$(xdotool getwindowgeometry --shell "$W" | sed -n 's/^X=//p'); Y=$(xdotool getwindowgeometry --shell "$W" | sed -n 's/^Y=//p')
 click() { xdotool mousemove $((X + $1 * SCALE)) $((Y + $2 * SCALE)); sleep 0.6; xdotool mousedown 1; sleep 0.15; xdotool mouseup 1; }
 click 640 292; sleep 3                       # Load game
-xdotool mousemove $((X + 640 * SCALE)) $((Y + (172 + 56 * SLOT) * SCALE)); sleep 0.6; xdotool click 1; sleep 0.3; xdotool click 1
+xdotool mousemove $((X + 640 * SCALE)) $((Y + (188 + 56 * SLOT) * SCALE)); sleep 0.6; xdotool click 1; sleep 0.3; xdotool click 1
 sleep 12

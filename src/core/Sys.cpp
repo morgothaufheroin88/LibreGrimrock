@@ -4,7 +4,7 @@
 #include "core/Sys.h"
 #include "core/Exception.h"
 #include "core/FileSystem.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -228,10 +228,14 @@ void sysSetClipboard(const char* text)
 // 0x080cc540
 void sysGetDesktopDisplayMode(int& width, int& height)
 {
-    SDL_DisplayMode mode;
-    SDL_GetDesktopDisplayMode(0, &mode);
-    width = mode.w;
-    height = mode.h;
+    const SDL_DisplayMode* mode = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
+    width = mode ? mode->w : 0;
+    height = mode ? mode->h : 0;
+}
+float sysGetDisplayRefreshRate()
+{
+    const SDL_DisplayMode* mode = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
+    return mode ? mode->refresh_rate : 0.0f;
 }
 // 0x080cc570
 int sysMessageBox(const char* title, const char* message, MessageBoxType type)
@@ -239,10 +243,10 @@ int sysMessageBox(const char* title, const char* message, MessageBoxType type)
     SDL_MessageBoxButtonData buttons[3];
     int numButtons = 1;
     buttons[0].flags = SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT;
-    buttons[0].buttonid = 1;
+    buttons[0].buttonID = 1;
     buttons[0].text = "OK";
     buttons[1].flags = SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
-    buttons[1].buttonid = 2;
+    buttons[1].buttonID = 2;
     buttons[1].text = "Cancel";
     switch (type)
     {
@@ -266,7 +270,7 @@ int sysMessageBox(const char* title, const char* message, MessageBoxType type)
         buttons[0].text = "Yes";
         buttons[1].text = "No";
         buttons[2].flags = 0;
-        buttons[2].buttonid = 3;
+        buttons[2].buttonID = 3;
         buttons[2].text = "Cancel";
         break;
     }
@@ -279,7 +283,7 @@ int sysMessageBox(const char* title, const char* message, MessageBoxType type)
     data.buttons = buttons;
     // 1 based button index like fl_choice: 1 = ok/yes/retry, 2 = cancel/no, 3 = cancel
     int result = 0;
-    if (SDL_ShowMessageBox(&data, &result) != 0)
+    if (!SDL_ShowMessageBox(&data, &result))
         return 1;
     return result;
 }

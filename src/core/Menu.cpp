@@ -1,6 +1,6 @@
 // Reconstructed from Grimrock.bin.x86 Menu.cpp.
 #include "core/Menu.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 namespace core
 {
@@ -70,7 +70,7 @@ bool Menu::trigger(int id)
             SDL_memset(&e, 0, sizeof(e));
             e.type = sdlUserEvent;
             e.user.code = id;
-            return SDL_PushEvent(&e) == 1;
+            return SDL_PushEvent(&e);
         }
         if (m_items[i].subMenu && m_items[i].subMenu->trigger(id))
             return true;

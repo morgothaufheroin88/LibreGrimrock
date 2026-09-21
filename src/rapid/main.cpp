@@ -4,7 +4,7 @@
 #include "core/Exception.h"
 #include "core/FileSystem.h"
 #include "core/Sys.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -21,13 +21,9 @@ static const char* const g_iconName = "grimrock.png";
 // directory before mounting the archive.
 static void changeToExeDir()
 {
-    char* base = SDL_GetBasePath();
-    if (base)
-    {
-        if (chdir(base) != 0)
-            fprintf(stderr, "chdir(%s) failed\n", base);
-        SDL_free(base);
-    }
+    const char* base = SDL_GetBasePath();
+    if (base && chdir(base) != 0)
+        fprintf(stderr, "chdir(%s) failed\n", base);
 }
 
 // On hybrid (Intel + NVIDIA) laptops GLX picks the integrated GPU unless PRIME render

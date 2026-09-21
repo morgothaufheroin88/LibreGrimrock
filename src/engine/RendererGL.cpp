@@ -51,17 +51,30 @@ RenderContextSDL::RenderContextSDL(Window* window, bool windowed, bool verticalS
     }
     glGetError(); // glewInit may leave an error behind on core profiles
     contextCreated();
+    updateBackBuffer();
+}
+void RenderContextSDL::updateBackBuffer()
+{
     int drawableWidth = 0, drawableHeight = 0;
-    SDL_GL_GetDrawableSize(m_pWindow, &drawableWidth, &drawableHeight);
-    if (drawableWidth != window->getWidth() || drawableHeight != window->getHeight())
-        createBackBuffer(window->getWidth(), window->getHeight());
+    SDL_GetWindowSizeInPixels(m_pWindow, &drawableWidth, &drawableHeight);
+    int width = m_pCoreWindow->getWidth(), height = m_pCoreWindow->getHeight();
+    bool scaled = drawableWidth != width || drawableHeight != height;
+    if (scaled && (!m_backBuffer || m_backBufferWidth != width || m_backBufferHeight != height))
+    {
+        destroyBackBuffer();
+        createBackBuffer(width, height);
+    }
+    else if (!scaled && m_backBuffer)
+    {
+        destroyBackBuffer();
+    }
 }
 // 0x0810ff40
 RenderContextSDL::~RenderContextSDL()
 {
     destroyBackBuffer();
     contextTerminating();
-    SDL_GL_DeleteContext(m_context);
+    SDL_GL_DestroyContext(m_context);
 }
 void RenderContextSDL::createBackBuffer(int width, int height)
 {
@@ -106,7 +119,7 @@ void RenderContextSDL::swapBuffers()
         // letterboxed, linearly filtered copy of the frame onto the window
         int x, y, width, height, windowWidth, windowHeight;
         m_pCoreWindow->getPresentationRect(x, y, width, height);
-        SDL_GL_GetDrawableSize(m_pWindow, &windowWidth, &windowHeight);
+        SDL_GetWindowSizeInPixels(m_pWindow, &windowWidth, &windowHeight);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, m_backBuffer);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
         glDisable(GL_SCISSOR_TEST);
@@ -132,13 +145,13 @@ void RenderContextSDL::SetupGLAttributes()
 // 0x0810fd50: display modes with a sane aspect ratio, not larger than the desktop.
 void RenderContextSDL::enumerateResolutions(Array<std::pair<int, int>>& resolutions)
 {
-    int numModes = SDL_GetNumDisplayModes(0);
+    int numModes = 0;
+    SDL_DisplayMode** modes = SDL_GetFullscreenDisplayModes(SDL_GetPrimaryDisplay(), &numModes);
     int desktopW, desktopH;
     sysGetDesktopDisplayMode(desktopW, desktopH);
-    for (int i = 0; i < numModes; ++i)
+    for (int i = 0; modes && i < numModes; ++i)
     {
-        SDL_DisplayMode mode;
-        SDL_GetDisplayMode(0, i, &mode);
+        const SDL_DisplayMode& mode = *modes[i];
         if (mode.w > mode.h * 2 || mode.h > mode.w * 2 || mode.w > desktopW || mode.h > desktopH ||
             SDL_BITSPERPIXEL(mode.format) <= 14)
             continue;
@@ -149,6 +162,7 @@ void RenderContextSDL::enumerateResolutions(Array<std::pair<int, int>>& resoluti
         if (!found)
             resolutions.push_back(std::pair<int, int>(mode.w, mode.h));
     }
+    SDL_free(modes);
 }
 
 // ---- RenderableTextureGL ---------------------------------------------------------
@@ -789,6 +803,7 @@ void RendererGL::setRenderWindow(RenderWindow* window) {}
 // 0x08113900
 void RendererGL::beginRender()
 {
+    m_pContext->updateBackBuffer();
     m_pContext->setRenderTarget(RenderContextGL::DefaultFrameBuffer);
     glViewport(0, 0, m_config.width, m_config.height);
     checkGLErrors("glViewport");

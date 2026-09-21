@@ -1,8 +1,10 @@
 // Reconstructed from Grimrock.bin.x86 Window.cpp.
 #include "core/Window.h"
+#include "core/Exception.h"
 #include "core/Image.h"
 #include "core/Sys.h"
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 
 namespace core
@@ -18,18 +20,18 @@ Cursor::Cursor(int systemCursor)
 // 0x080cdab0
 Cursor::Cursor(const Image& image, int hotX, int hotY)
 {
-    SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
-        (void*)image.getData(), image.getWidth(), image.getHeight(), 32, image.getWidth() * 4,
-        PixelMaskRed, PixelMaskGreen, PixelMaskBlue, PixelMaskAlpha);
+    SDL_Surface* surface =
+        SDL_CreateSurfaceFrom(image.getWidth(), image.getHeight(), SDL_PIXELFORMAT_ARGB8888,
+                              (void*)image.getData(), image.getWidth() * 4);
     m_pCursor = SDL_CreateColorCursor(surface, hotX, hotY);
-    SDL_FreeSurface(surface);
+    SDL_DestroySurface(surface);
     m_systemCursor = -1;
 }
 // 0x080cda90
 Cursor::~Cursor()
 {
     if (m_pCursor)
-        SDL_FreeCursor(m_pCursor);
+        SDL_DestroyCursor(m_pCursor);
 }
 
 constexpr int DefaultMenuHeight = 25;
@@ -79,15 +81,23 @@ void Window::open(Window* parent, int x, int y, int width, int height, int flags
     SetupGLAttributes();
     if (flags & Fullscreen)
     {
-        m_pWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width,
-                                     height, sdlFlags | SDL_WINDOW_FULLSCREEN_DESKTOP);
-        SDL_SetWindowGrab(m_pWindow, SDL_TRUE);
+        // SDL3 fullscreen with a null fullscreen mode is the desktop ("borderless") mode
+        m_pWindow = SDL_CreateWindow(title, width, height, sdlFlags | SDL_WINDOW_FULLSCREEN);
+        if (m_pWindow)
+        {
+            SDL_SetWindowFullscreenMode(m_pWindow, 0);
+            SDL_SetWindowMouseGrab(m_pWindow, true);
+        }
     }
     else
     {
-        m_pWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width,
-                                     height, sdlFlags);
+        m_pWindow = SDL_CreateWindow(title, width, height, sdlFlags);
+        if (m_pWindow)
+            SDL_SetWindowPosition(m_pWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     }
+    if (!m_pWindow)
+        throw Exception("Could not create window: %s", SDL_GetError());
+    SDL_StartTextInput(m_pWindow);
 }
 // Letterboxed rectangle of the render size inside the actual window, in window
 // coordinates; equal to the window when the sizes match.
@@ -148,20 +158,24 @@ int Window::getModifiers()
 {
     int mods = 0;
     SDL_Keymod state = SDL_GetModState();
-    if (state & KMOD_SHIFT)
+    if (state & SDL_KMOD_SHIFT)
         mods |= Mod_Shift;
-    if (state & KMOD_CTRL)
+    if (state & SDL_KMOD_CTRL)
         mods |= Mod_Control;
-    if (state & KMOD_ALT)
+    if (state & SDL_KMOD_ALT)
         mods |= Mod_Alt;
-    if (state & KMOD_GUI)
+    if (state & SDL_KMOD_GUI)
         mods |= Mod_Gui;
     return mods;
 }
 // 0x080cdd00
 void Window::onKey(const SDL_KeyboardEvent& sdlEvent)
 {
-    std::map<SDL_Scancode, int>::iterator it = m_keyMap.find(sdlEvent.keysym.scancode);
+    std::map<SDL_Scancode, int>::iterator it = m_keyMap.find(sdlEvent.scancode);
+    if (getenv("GRIMROCK_DEBUG_INPUT"))
+        debugPrint("key scancode %d keycode %u down %d -> %d\n", (int)sdlEvent.scancode,
+                   (unsigned)sdlEvent.key, (int)sdlEvent.down,
+                   it == m_keyMap.end() ? -1 : it->second);
     if (it == m_keyMap.end())
         return;
     KeyEvent event;
@@ -170,7 +184,7 @@ void Window::onKey(const SDL_KeyboardEvent& sdlEvent)
     event.scancode = 0;
     event.ch = 0;
     event.modifiers = getModifiers();
-    event.pressed = sdlEvent.state == SDL_PRESSED;
+    event.pressed = sdlEvent.down;
     post(&event);
 }
 // 0x080cde20: only single byte characters are delivered.
@@ -193,12 +207,12 @@ void Window::onMouseButton(const SDL_MouseButtonEvent& sdlEvent)
 {
     MouseButtonEvent event;
     event.type = Event_MouseButton;
-    event.x = sdlEvent.x;
-    event.y = sdlEvent.y;
+    event.x = (int)lrintf(sdlEvent.x);
+    event.y = (int)lrintf(sdlEvent.y);
     windowToRender(event.x, event.y);
     event.button = sdlEvent.button - 1;
     event.modifiers = getModifiers();
-    event.pressed = sdlEvent.state == SDL_PRESSED;
+    event.pressed = sdlEvent.down;
     post(&event);
 }
 // 0x080cddc0
@@ -212,7 +226,7 @@ void Window::onMouseMove(const SDL_MouseMotionEvent& sdlEvent)
         m_relMouseY += (int)lrintf(sdlEvent.yrel / scale);
         return;
     }
-    int x = sdlEvent.x, y = sdlEvent.y;
+    int x = (int)lrintf(sdlEvent.x), y = (int)lrintf(sdlEvent.y);
     windowToRender(x, y);
     m_mouseX = x;
     m_mouseY = y;
@@ -274,45 +288,38 @@ bool Window::processMessages()
     {
         switch (sdlEvent.type)
         {
-        case SDL_QUIT:
+        case SDL_EVENT_QUIT:
             return false;
-        case SDL_WINDOWEVENT:
-            switch (sdlEvent.window.event)
-            {
-            case SDL_WINDOWEVENT_MOVED:
-                onMove(sdlEvent.window.data1, sdlEvent.window.data2);
-                break;
-            case SDL_WINDOWEVENT_RESIZED:
-                onResize(sdlEvent.window.data1, sdlEvent.window.data2);
-                break;
-            case SDL_WINDOWEVENT_FOCUS_GAINED:
-                onFocus(true);
-                break;
-            case SDL_WINDOWEVENT_FOCUS_LOST:
-                onFocus(false);
-                break;
-            case SDL_WINDOWEVENT_CLOSE:
-                onClose();
-                break;
-            default:
-                break;
-            }
+        case SDL_EVENT_WINDOW_MOVED:
+            onMove(sdlEvent.window.data1, sdlEvent.window.data2);
             break;
-        case SDL_KEYDOWN:
-        case SDL_KEYUP:
+        case SDL_EVENT_WINDOW_RESIZED:
+            onResize(sdlEvent.window.data1, sdlEvent.window.data2);
+            break;
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            onFocus(true);
+            break;
+        case SDL_EVENT_WINDOW_FOCUS_LOST:
+            onFocus(false);
+            break;
+        case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+            onClose();
+            break;
+        case SDL_EVENT_KEY_DOWN:
+        case SDL_EVENT_KEY_UP:
             onKey(sdlEvent.key);
             break;
-        case SDL_TEXTINPUT:
+        case SDL_EVENT_TEXT_INPUT:
             onText(sdlEvent.text);
             break;
-        case SDL_MOUSEMOTION:
+        case SDL_EVENT_MOUSE_MOTION:
             onMouseMove(sdlEvent.motion);
             break;
-        case SDL_MOUSEBUTTONDOWN:
-        case SDL_MOUSEBUTTONUP:
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
             onMouseButton(sdlEvent.button);
             break;
-        case SDL_MOUSEWHEEL:
+        case SDL_EVENT_MOUSE_WHEEL:
             onMouseWheel(sdlEvent.wheel);
             break;
         default:
@@ -344,22 +351,21 @@ void Window::setMouseMotionMode(int mode)
     {
         m_savedMouseX = m_mouseX;
         m_savedMouseY = m_mouseY;
-        SDL_ShowCursor(SDL_DISABLE);
-        SDL_SetWindowGrab(m_pWindow, SDL_TRUE);
-        SDL_SetRelativeMouseMode(SDL_TRUE);
+        SDL_HideCursor();
+        SDL_SetWindowMouseGrab(m_pWindow, true);
+        SDL_SetWindowRelativeMouseMode(m_pWindow, true);
         return;
     }
     {
         int px, py, pw, ph;
         getPresentationRect(px, py, pw, ph);
         float scale = getPresentationScale();
-        SDL_WarpMouseInWindow(m_pWindow, px + (int)lrintf(m_savedMouseX * scale),
-                              py + (int)lrintf(m_savedMouseY * scale));
+        SDL_WarpMouseInWindow(m_pWindow, px + m_savedMouseX * scale, py + m_savedMouseY * scale);
     }
-    SDL_ShowCursor(SDL_ENABLE);
-    SDL_SetRelativeMouseMode(SDL_FALSE);
+    SDL_ShowCursor();
+    SDL_SetWindowRelativeMouseMode(m_pWindow, false);
     if (!(m_flags & Fullscreen))
-        SDL_SetWindowGrab(m_pWindow, SDL_FALSE);
+        SDL_SetWindowMouseGrab(m_pWindow, false);
 }
 // 0x080cd7c0
 Vec2 Window::getPosition() const
@@ -384,11 +390,11 @@ void Window::setTitle(const char* title)
 // 0x080cd880
 void Window::setIcon(const Image& image)
 {
-    SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
-        (void*)image.getData(), image.getWidth(), image.getHeight(), 32, image.getWidth() * 4,
-        PixelMaskRed, PixelMaskGreen, PixelMaskBlue, PixelMaskAlpha);
+    SDL_Surface* surface =
+        SDL_CreateSurfaceFrom(image.getWidth(), image.getHeight(), SDL_PIXELFORMAT_ARGB8888,
+                              (void*)image.getData(), image.getWidth() * 4);
     SDL_SetWindowIcon(m_pWindow, surface);
-    SDL_FreeSurface(surface);
+    SDL_DestroySurface(surface);
 }
 // 0x080ce340
 void Window::setCursor(Cursor* cursor)

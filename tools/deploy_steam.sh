@@ -3,7 +3,7 @@
 #   Grimrock.bin.x86      <- stripped build-release/grimrock (original kept as .orig)
 #   libsteam_api.so       <- Steamworks SDK linux64 library
 #   lib64/                <- host libraries that the Steam Linux Runtime (scout) container
-#                            does not ship (minizip, GLEW); everything else (SDL2, OpenAL,
+#                            does not ship (minizip, GLEW, SDL3); everything else (OpenAL,
 #                            FreeType, vorbisfile, zlib, libstdc++) comes from the runtime.
 # Usage: tools/deploy_steam.sh [game dir]
 set -e
@@ -25,7 +25,7 @@ if [ -f "$ROOT/third_party/steamworks/linux64/libsteam_api.so" ]; then
 fi
 
 mkdir -p "$GAME/lib64"
-ldd "$ROOT/build-release/grimrock" | awk '/libminizip|libGLEW/ { print $1, $3 }' |
+ldd "$ROOT/build-release/grimrock" | awk '/libminizip|libGLEW|libSDL3/ { print $1, $3 }' |
 while read -r name path; do
     cp -L "$path" "$GAME/lib64/$name"
 done

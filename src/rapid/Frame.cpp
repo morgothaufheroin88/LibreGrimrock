@@ -305,7 +305,7 @@ static int Frame_create(lua_State* L)
 {
     constexpr int DefaultWidth = 800;
     constexpr int DefaultHeight = 600;
-    int x = SDL_WINDOWPOS_CENTERED, y = SDL_WINDOWPOS_CENTERED;
+    int x = 0, y = 0; // the window is centred by Window::open like in the original
     int width = DefaultWidth, height = DefaultHeight;
     const char* title = "";
     bool fullscreen = false, resizable = false, borderless = false;
