@@ -53,20 +53,17 @@ RenderContextSDL::RenderContextSDL(Window* window, bool windowed, bool verticalS
     contextCreated();
     updateBackBuffer();
 }
+// The frame is always rendered into an off-screen buffer of the requested size and
+// blitted onto the window at swap time; that keeps the picture correct while the window
+// manager is still resizing a fullscreen window (the first frames after creation) and
+// costs one copy per frame.
 void RenderContextSDL::updateBackBuffer()
 {
-    int drawableWidth = 0, drawableHeight = 0;
-    SDL_GetWindowSizeInPixels(m_pWindow, &drawableWidth, &drawableHeight);
     int width = m_pCoreWindow->getWidth(), height = m_pCoreWindow->getHeight();
-    bool scaled = drawableWidth != width || drawableHeight != height;
-    if (scaled && (!m_backBuffer || m_backBufferWidth != width || m_backBufferHeight != height))
+    if (!m_backBuffer || m_backBufferWidth != width || m_backBufferHeight != height)
     {
         destroyBackBuffer();
         createBackBuffer(width, height);
-    }
-    else if (!scaled && m_backBuffer)
-    {
-        destroyBackBuffer();
     }
 }
 // 0x0810ff40
@@ -78,8 +75,7 @@ RenderContextSDL::~RenderContextSDL()
 }
 void RenderContextSDL::createBackBuffer(int width, int height)
 {
-    debugPrint("Rendering %dx%d into a %s window, scaling the frame\n", width, height,
-               (m_pCoreWindow->getFlags() & Window::Fullscreen) ? "desktop sized" : "larger");
+    debugPrint("Frame buffer %dx%d\n", width, height);
     m_backBufferWidth = width;
     m_backBufferHeight = height;
     glGenRenderbuffers(1, &m_backBufferColor);

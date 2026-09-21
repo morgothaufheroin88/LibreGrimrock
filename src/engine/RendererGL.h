@@ -36,15 +36,13 @@ class RenderContextSDL : public RenderContextGL
     static void enumerateResolutions(core::Array<std::pair<int, int>>& resolutions);
 
   private:
-    // When the window is larger than the requested frame (fullscreen at the desktop
-    // resolution), the frame is rendered into this off-screen back buffer of the requested
-    // size and scaled onto the window at swap time.
+    // The frame is rendered into this off-screen back buffer of the requested size and
+    // scaled (letterboxed) onto the window at swap time; see updateBackBuffer().
     void createBackBuffer(int width, int height);
     void destroyBackBuffer();
 
   public:
-    // Creates or drops the back buffer when the window size differs from the frame size
-    // (fullscreen windows take the desktop size after creation).
+    // (Re)creates the back buffer for the requested frame size.
     void updateBackBuffer();
 
   private:

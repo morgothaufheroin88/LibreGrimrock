@@ -86,6 +86,9 @@ void Window::open(Window* parent, int x, int y, int width, int height, int flags
         if (m_pWindow)
         {
             SDL_SetWindowFullscreenMode(m_pWindow, 0);
+            // wait for the window manager to apply the fullscreen size, otherwise the
+            // first frames are presented with the pre-fullscreen window size
+            SDL_SyncWindow(m_pWindow);
             SDL_SetWindowMouseGrab(m_pWindow, true);
         }
     }

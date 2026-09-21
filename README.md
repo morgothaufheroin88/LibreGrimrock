@@ -98,25 +98,6 @@ behaviour of the original).
 `build-release/grimrock_archive grimrock.dat list | exists NAME | read NAME OUT |
 extract-all DIR | verify` inspects the game archive.
 
-### Choosing the GPU
-
-OpenGL cannot pick a GPU from inside the program: GLX hands the application
-the driver of the GPU that drives the display, and on hybrid laptops that is
-the integrated one. The choice belongs to the environment, exactly as for any
-other OpenGL game:
-
-- proprietary NVIDIA driver: `prime-run ./grimrock` where the distribution
-  provides it, or `__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia ./grimrock`;
-- Mesa drivers (AMD, Intel, nouveau): `DRI_PRIME=1 ./grimrock`, or
-  `DRI_PRIME=pci-0000_01_00_0` to name a device;
-- `switcherooctl launch ./grimrock`, or the desktop's "launch using discrete
-  graphics" menu entry, on systems with switcheroo-control;
-- in Steam: *Properties → Launch options*, e.g. `prime-run %command%` or
-  `DRI_PRIME=1 %command%`.
-
-The GL vendor and renderer are printed at startup, so it is easy to see which
-GPU was used.
-
 ## Installing into the Steam copy
 
 `tools/deploy_steam.sh [game dir]` builds `build-release` and installs the
