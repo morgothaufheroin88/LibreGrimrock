@@ -1,0 +1,147 @@
+// Camera node and free-look controls, from Camera.cpp (0x080f76f0-0x080f9d00).
+#pragma once
+#include "core/Array.h"
+#include "core/EventHandler.h"
+#include "core/Prim.h"
+#include "engine/Node.h"
+
+namespace core
+{
+class Window;
+template <class T> class Average
+{
+  public:
+    explicit Average(int maxSamples = 10) : m_maxSamples(maxSamples) {}
+    void addSample(T v)
+    {
+        if (m_samples.size() < m_maxSamples)
+            m_samples.push_back(v);
+        else
+        {
+            m_samples.erase(0);
+            m_samples.push_back(v);
+        }
+    }
+    T get() const
+    {
+        T sum = 0;
+        for (int i = 0; i < m_samples.size(); ++i)
+            sum += m_samples[i];
+        return m_samples.size() ? sum / (T)m_samples.size() : sum;
+    }
+    T& back()
+    {
+        return m_samples.back();
+    }
+    int size() const
+    {
+        return m_samples.size();
+    }
+
+  private:
+    Array<T> m_samples;
+    int m_maxSamples;
+};
+} // namespace core
+
+namespace engine
+{
+
+// D3D style clip space: z in [0, 1], w = z. (0x080f7870 / 0x080f7710)
+void makePerspectiveProjectionMatrix(core::Matrix4x4* m, float fov, float aspect, float nearZ,
+                                     float farZ);
+void makeOrthoProjectionMatrix(core::Matrix4x4* m, const core::Vec3& min, const core::Vec3& max);
+
+class Camera : public Node
+{
+  public:
+    enum PlaneIndex
+    {
+        LeftPlane = 0,
+        RightPlane,
+        BottomPlane,
+        TopPlane,
+        NearPlane,
+        FarPlane
+    };
+
+    Camera();
+    Camera(float fov, float aspect, float nearZ, float farZ);
+    explicit Camera(const core::Matrix4x4& projection);
+    ~Camera();
+    void notifyMoved();
+
+    void setProjectionMatrix(const core::Matrix4x4& m);
+    const core::Matrix4x4& getProjectionMatrix() const
+    {
+        return m_projection;
+    }
+    const core::Matrix4x4& getInverseProjectionMatrix() const
+    {
+        return m_invProjection;
+    }
+    const core::Matrix4x4& getViewProjectionMatrix() const;
+    const core::Matrix4x4& getInverseViewProjectionMatrix() const;
+    const core::Plane& getPlane(int i) const;
+    float getNear() const;
+    float getFar() const;
+    // Normalized device coordinates in [0,1] with y down; z is the clip space depth.
+    core::Vec3 projectWorldPoint(const core::Vec3& p) const;
+    // Rays from a screen position in [0,1] x [0,1].
+    core::Ray3 getViewRay(const core::Vec2& screen) const;
+    core::Ray3 getWorldRay(const core::Vec2& screen) const;
+
+  private:
+    void validateMatrices() const;
+    void validatePlanes() const;
+
+    core::Matrix4x4 m_projection;
+    core::Matrix4x4 m_invProjection;
+    mutable core::Matrix4x4 m_viewProjection;
+    mutable core::Matrix4x4 m_invViewProjection;
+    mutable bool m_matricesDirty;
+    mutable core::Plane m_planes[6];
+    mutable float m_near;
+    mutable float m_far;
+    mutable bool m_planesDirty;
+};
+
+// WASD/QE fly camera driven by window events (0x080f77a0-0x080f97a0).
+class CameraControls : public core::EventHandler
+{
+  public:
+    CameraControls(core::Window* window, Camera* camera, float scale);
+    ~CameraControls();
+    bool handle(core::KeyEvent* e);
+    bool handle(core::MouseButtonEvent* e);
+    bool handle(core::MouseMotionEvent* e);
+    void update(float dt);
+    Camera* getCamera() const
+    {
+        return m_pCamera;
+    }
+    void setCamera(Camera* camera)
+    {
+        m_pCamera = camera;
+    }
+    float getScale() const
+    {
+        return m_scale;
+    }
+    void setScale(float s)
+    {
+        m_scale = s;
+    }
+
+  private:
+    core::Window* m_pWindow;
+    Camera* m_pCamera;
+    core::Average<float> m_mouseX;
+    core::Average<float> m_mouseY;
+    float m_pitch, m_yaw, m_roll;
+    float m_velForward, m_velStrafe, m_velUp;
+    bool m_forward, m_backward, m_left, m_right, m_up, m_down;
+    float m_scale;
+};
+
+} // namespace engine
