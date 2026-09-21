@@ -49,6 +49,8 @@ String sysCreateGuid();
 String sysGetClipboard();
 void sysSetClipboard(const char* text);
 void sysGetDesktopDisplayMode(int& width, int& height);
+// Refresh rate of the primary display in Hz, 0 when unknown.
+float sysGetDisplayRefreshRate();
 int sysMessageBox(const char* title, const char* message, MessageBoxType type);
 
 } // namespace core

@@ -9,7 +9,7 @@
 #include "core/Sys.h"
 #include "core/TextFile.h"
 #include "sys.h"
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
@@ -63,7 +63,6 @@ RapidEngine::RapidEngine()
     m_rootDirectory = sysGetCurrentDirectory();
     m_libPath = m_rootDirectory;
     m_libPath.append("/lib");
-    SDL_SetHint("SDL_VIDEO_X11_XRANDR", "1");
     SDL_Init(SDL_INIT_VIDEO);
 }
 // 0x0812c1e0
@@ -253,14 +252,20 @@ void RapidEngine::enterMainLoop()
                 if (frameMs > g_stallThresholdMs)
                     debugPrint("--- stall: frame took %.0f ms\n", frameMs);
             }
-            // frame rate limiter
-            int fps = m_maxFrameRate;
-            if (fps <= 0)
-                fps = 1;
-            else if (fps > 1000)
-                fps = 1000;
-            while (sysGetSeconds(sysClock()) - start < 1.0 / (float)fps)
+            // Frame rate limiter. The original spins until 1/maxFrameRate has passed
+            // (sys.setMaxFrameRate, 120 in the shipped config); here the cap is the
+            // refresh rate of the display, and the wait sleeps instead of burning a core.
+            double frameTime = 1.0 / (double)(m_maxFrameRate > 0 ? m_maxFrameRate : 1000);
+            float refreshRate = sysGetDisplayRefreshRate();
+            if (refreshRate > 0.0f)
+                frameTime = 1.0 / (double)refreshRate;
+            for (;;)
             {
+                double remaining = frameTime - (sysGetSeconds(sysClock()) - start);
+                if (remaining <= 0.0)
+                    break;
+                if (remaining > 0.0015)
+                    usleep((useconds_t)((remaining - 0.001) * 1e6));
             }
         }
         lua_close(L);

@@ -45,14 +45,15 @@ that the Linux binary does not contain.
 
 ## Building
 
-Requirements: a C++17 compiler, CMake ≥ 3.20, SDL2, SDL2_image, OpenAL,
-libvorbisfile, zlib, minizip, FreeType, GLEW, OpenGL, `pkg-config`, Git and
-Python 3 (tools only). On a Debian/Ubuntu system:
+Requirements: a C++17 compiler, CMake ≥ 3.20, SDL3, OpenAL, libvorbisfile,
+zlib, minizip, FreeType, GLEW, OpenGL, `pkg-config`, Git and Python 3 (tools
+only). Image loading uses the vendored `stb_image` headers. On a Debian/Ubuntu
+system:
 
 ```sh
-sudo apt install build-essential cmake pkg-config git libsdl2-dev \
-    libsdl2-image-dev libopenal-dev libvorbis-dev zlib1g-dev libminizip-dev \
-    libfreetype-dev libglew-dev
+sudo apt install build-essential cmake pkg-config git libsdl3-dev \
+    libopenal-dev libvorbis-dev zlib1g-dev libminizip-dev libfreetype-dev \
+    libglew-dev
 ```
 
 Two third-party pieces are not redistributed here and are fetched by a script:
@@ -107,9 +108,9 @@ result over the Steam installation (default
   `Grimrock.bin.x86.orig`);
 - `libsteam_api.so` (64-bit, from the SDK) is placed next to it;
 - `lib64/` receives the host libraries that the Steam Linux Runtime container
-  does not provide (`libminizip`, `libGLEW`); the executable's `RUNPATH` is
-  `$ORIGIN/lib64:$ORIGIN`. SDL2, OpenAL, FreeType, vorbisfile and zlib come
-  from the runtime.
+  does not provide (`libminizip`, `libGLEW`, `libSDL3`); the executable's
+  `RUNPATH` is `$ORIGIN/lib64:$ORIGIN`. OpenAL, FreeType, vorbisfile and zlib
+  come from the runtime.
 
 After that the game starts from the Steam client as usual, with the overlay,
 achievements, cloud saves and workshop working. Steam's *Verify integrity of
@@ -124,8 +125,9 @@ i386 binary is limited to:
 - **64-bit**: modern `stat`/`fstat` and 64-bit sizes in the file systems, a
   memory mapped archive instead of 32-bit offsets, pointer-sized Lua proxies,
   refcount map and `uint64` userdata.
-- **Libraries**: FreeImage, FLTK and binreloc are replaced by SDL_image,
-  `kdialog` and `SDL_GetBasePath`; the linked-in LuaBitOp is replaced by
+- **Libraries**: the SDL2 window/input layer of the original is on SDL3;
+  FreeImage, FLTK and binreloc are replaced by `stb_image`, `kdialog` and
+  `SDL_GetBasePath`; the linked-in LuaBitOp is replaced by
   LuaJIT's own `bit` library (same API); Steamworks 1.23a by the current SDK
   (only `ISteamUserStats::RequestCurrentStats` no longer exists — the binding
   reports success, the stats arrive automatically).
@@ -135,6 +137,10 @@ i386 binary is limited to:
   panel cannot show that mode. Fullscreen now uses the desktop mode; the frame
   is rendered into an off-screen buffer of the configured size and scaled,
   letterboxed, onto the window, with mouse coordinates mapped back.
+- **Frame rate**: the original spins in a busy loop until `1/maxFrameRate`
+  (120 in the shipped config) has passed. The cap is now the refresh rate of
+  the display and the wait sleeps instead of burning a core; with vertical sync
+  on, the swap does the pacing anyway.
 - **GPU selection**: on hybrid Intel/NVIDIA laptops `main()` requests PRIME
   render offload when the NVIDIA GLX library is installed, so the game renders
   on the discrete GPU (as the Steam client's "Run with NVIDIA" option does).
