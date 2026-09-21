@@ -98,6 +98,25 @@ behaviour of the original).
 `build-release/grimrock_archive grimrock.dat list | exists NAME | read NAME OUT |
 extract-all DIR | verify` inspects the game archive.
 
+### Choosing the GPU
+
+OpenGL cannot pick a GPU from inside the program: GLX hands the application
+the driver of the GPU that drives the display, and on hybrid laptops that is
+the integrated one. The choice belongs to the environment, exactly as for any
+other OpenGL game:
+
+- proprietary NVIDIA driver: `prime-run ./grimrock` where the distribution
+  provides it, or `__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia ./grimrock`;
+- Mesa drivers (AMD, Intel, nouveau): `DRI_PRIME=1 ./grimrock`, or
+  `DRI_PRIME=pci-0000_01_00_0` to name a device;
+- `switcherooctl launch ./grimrock`, or the desktop's "launch using discrete
+  graphics" menu entry, on systems with switcheroo-control;
+- in Steam: *Properties → Launch options*, e.g. `prime-run %command%` or
+  `DRI_PRIME=1 %command%`.
+
+The GL vendor and renderer are printed at startup, so it is easy to see which
+GPU was used.
+
 ## Installing into the Steam copy
 
 `tools/deploy_steam.sh [game dir]` builds `build-release` and installs the
@@ -141,18 +160,6 @@ i386 binary is limited to:
   (120 in the shipped config) has passed. The cap is now the refresh rate of
   the display and the wait sleeps instead of burning a core; with vertical sync
   on, the swap does the pacing anyway.
-- **GPU selection** (`src/rapid/GpuSelect.cpp`): on systems with more than
-  one GPU the game renders on the discrete one. The DRM devices in sysfs are
-  inspected; when the GPU that drives the display is an Intel integrated GPU,
-  reports less dedicated memory than the other GPU, or is an AMD APU next to an
-  NVIDIA GPU, render offload is requested for the other GPU — through
-  `DRI_PRIME=pci-…` for Mesa drivers (AMD, Intel, nouveau) or
-  `__NV_PRIME_RENDER_OFFLOAD`/`__GLX_VENDOR_LIBRARY_NAME` for the proprietary
-  NVIDIA driver. A desktop whose discrete GPU already drives the display and
-  single-GPU systems are left alone. `GRIMROCK_GPU=integrated` keeps the
-  display GPU, `GRIMROCK_GPU=<pci address>` (e.g. `0000:01:00.0`) picks a
-  device, and a preset `DRI_PRIME` or `__GLX_VENDOR_LIBRARY_NAME` is
-  respected. The chosen GPU and the GL renderer are printed at startup.
 - A handful of real bugs of the original are fixed where they corrupt memory
   (`String::erase` over-read, a use-after-free of a mesh source copy) or leak
   (Steam tag arrays); each is commented at the site.

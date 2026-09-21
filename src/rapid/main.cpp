@@ -1,5 +1,4 @@
 // Reconstructed from Grimrock.bin.x86 main.cpp (0x0815dff0).
-#include "GpuSelect.h"
 #include "RapidEngine.h"
 #include "core/ArchiveFileSystem.h"
 #include "core/Exception.h"
@@ -29,7 +28,6 @@ static void changeToExeDir()
 
 int main(int argc, char** argv)
 {
-    selectRenderGPU();
     changeToExeDir();
     try
     {
