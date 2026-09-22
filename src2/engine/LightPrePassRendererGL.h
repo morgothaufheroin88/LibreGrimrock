@@ -45,7 +45,10 @@ class LightPrePassRendererGL
     };
     static constexpr int NumShadowMapSizes = 16; // indexed by log2(size)
     static constexpr int NumCascades = 4;
-    static constexpr int StaticShadowMapSizeIndexLimit = 12;
+    static constexpr int MaxShadowMapSizeIndex = 12; // the pools have slots 0..12
+    static constexpr int DirectionalShadowMapSize = 1024;
+    static constexpr int MinShadowCubeMapSize = 16;
+    static constexpr int MaxShadowCubeMapSize = 2048;
     // six frustum planes and one per silhouette edge of a cascade (0x004ecad0 reserves 16)
     static constexpr int MaxShadowCasterPlanes = 16;
 

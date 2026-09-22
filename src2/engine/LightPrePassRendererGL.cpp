@@ -205,11 +205,12 @@ LightPrePassRendererGL::LightPrePassRendererGL(RenderContextGL* context, int wid
     setProgram(m_pBlurCubeMapProgram,
                new ShaderProgramGL("shaders/gl/BlurCubeMap.vsh", "shaders/gl/BlurCubeMap.fsh"));
     resizeRenderBuffers(width, height);
-    // the directional light shadow map and the shadow cube maps for sizes 16..2048
+    // the directional light shadow map and the shadow cube maps of all sizes are there
+    // from the start
     Texture2DGL *map, *temp;
-    getShadowMap(1024, map, temp);
-    getShadowDepthBuffer(1024);
-    for (int size = 16; size <= 2048; size *= 2)
+    getShadowMap(DirectionalShadowMapSize, map, temp);
+    getShadowDepthBuffer(DirectionalShadowMapSize);
+    for (int size = MinShadowCubeMapSize; size <= MaxShadowCubeMapSize; size *= 2)
     {
         TextureCubeGL *cube, *cubeTemp;
         getShadowCubeMap(size, cube, cubeTemp);
@@ -291,12 +292,19 @@ void LightPrePassRendererGL::setViewportGL()
 
 // ---- shadow map pools ------------------------------------------------------------
 
+// inlined into the three pool accessors (0x004e7740 and after): log2 of a power of two
+// size; anything else ends up in the last slot
 int LightPrePassRendererGL::sizeIndex(int size)
 {
     int index = 0;
-    if (size != 1)
-        while (index < 11 && (1 << ++index) != size)
-            ;
+    if (size == 1)
+        return index;
+    while (index < MaxShadowMapSizeIndex)
+    {
+        ++index;
+        if ((1 << index) == size)
+            break;
+    }
     return index;
 }
 // 0x004e7740

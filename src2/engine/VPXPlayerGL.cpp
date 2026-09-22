@@ -52,6 +52,22 @@ VPXPlayerGL::~VPXPlayerGL()
     delete m_pProgram;
 }
 
+// the IVF container is little endian: a 32 byte file header (signature, version, header
+// size, codec, width, height, rate, scale, frame count) and a 12 byte header per frame
+// (size, timestamp)
+static unsigned int readUint16(const unsigned char* p)
+{
+    return p[0] | (p[1] << 8);
+}
+static unsigned int readUint32(const unsigned char* p)
+{
+    return p[0] | (p[1] << 8) | (p[2] << 16) | ((unsigned int)p[3] << 24);
+}
+constexpr int IVFWidthOffset = 12;
+constexpr int IVFHeightOffset = 14;
+constexpr int IVFRateOffset = 16;
+constexpr int IVFScaleOffset = 20;
+
 // 0x004f1cb0
 void VPXPlayerGL::open(const char* filename)
 {
@@ -61,10 +77,10 @@ void VPXPlayerGL::open(const char* filename)
     m_pFile->read(header, IVFHeaderSize);
     if (memcmp(header, "DKIF", 4) != 0)
         throw Exception("Not a valid IVF file: %s", filename);
-    m_width = header[12] | (header[13] << 8);
-    m_height = header[14] | (header[15] << 8);
-    unsigned int rate = header[16] | (header[17] << 8) | (header[18] << 16) | (header[19] << 24);
-    unsigned int scale = header[20] | (header[21] << 8) | (header[22] << 16) | (header[23] << 24);
+    m_width = readUint16(header + IVFWidthOffset);
+    m_height = readUint16(header + IVFHeightOffset);
+    unsigned int rate = readUint32(header + IVFRateOffset);
+    unsigned int scale = readUint32(header + IVFScaleOffset);
     if (scale < 2)
         scale = 1;
     m_frameRate = (float)rate / (float)scale;
@@ -142,8 +158,7 @@ void VPXPlayerGL::decodeFrames(int count)
     {
         unsigned char frameHeader[IVFFrameHeaderSize];
         m_pFile->read(frameHeader, IVFFrameHeaderSize);
-        int size = frameHeader[0] | (frameHeader[1] << 8) | (frameHeader[2] << 16) |
-                   (frameHeader[3] << 24);
+        int size = (int)readUint32(frameHeader);
         if (m_frameData.size() < size)
             m_frameData.resize(size);
         m_pFile->read(m_frameData.data(), size);
