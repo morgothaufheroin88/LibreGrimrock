@@ -542,57 +542,6 @@ GLuint RenderContextGL::compileShader(const char* source, GLenum type, const cha
     }
     return shader;
 }
-#if GRIMROCK_GAME >= 2
-constexpr int MaxShaderIncludes = 100;
-constexpr int IncludeDirectiveLength = 10; // #include "
-
-// grimrock2.exe 0x004e20e0
-void RenderContextGL::preprocessShader(const char* filename, const char* shaderDir, String& out,
-                                       int& includeCount)
-{
-    if (includeCount > MaxShaderIncludes)
-        throw Exception("too many include directives (infinite recursion?)");
-    String directory = getPath(filename);
-    int length = 0;
-    char* data = readFile(filename, length);
-    if (!data)
-        throw Exception("Failed to load shader file %s", filename);
-    String source(data);
-    delete[] data;
-    source.replace("\r", "");
-    Array<String> lines = split(source.c_str(), "\n");
-    int fileNumber = includeCount;
-    for (int i = 0; i < lines.size(); ++i)
-    {
-        const String& line = lines[i];
-        if (!line.startsWith("#include"))
-        {
-            out.append(line.c_str());
-            out.append("\n");
-            continue;
-        }
-        // #include "name": next to the including file, otherwise in the shader directory
-        String name = line.substr(IncludeDirectiveLength, line.size() - 2);
-        String path = formatString("%s/%s", directory.c_str(), name.c_str());
-        if (!fileExists(path.c_str()))
-            path = formatString("%s/%s", shaderDir, name.c_str());
-        ++includeCount;
-        out.append(formatString("#line %d %d\n", 1, includeCount).c_str());
-        preprocessShader(path.c_str(), shaderDir, out, includeCount);
-        out.append(formatString("#line %d %d\n", i + 1, fileNumber).c_str());
-    }
-}
-// grimrock2.exe 0x004e2470
-GLuint RenderContextGL::compileShaderFromFile(const char* filename, GLenum type,
-                                              const char* const* defines)
-{
-    debugPrint("Compiling shader %s\n", filename);
-    String source;
-    int includeCount = 0;
-    preprocessShader(filename, "shaders/gl", source, includeCount);
-    return compileShader(source.c_str(), type, defines, filename);
-}
-#else
 // 0x08119d30
 GLuint RenderContextGL::compileShaderFromFile(const char* filename, GLenum type,
                                               const char* const* defines)
@@ -606,6 +555,5 @@ GLuint RenderContextGL::compileShaderFromFile(const char* filename, GLenum type,
     delete[] source;
     return shader;
 }
-#endif
 
 } // namespace engine

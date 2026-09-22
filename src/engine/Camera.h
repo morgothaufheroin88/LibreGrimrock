@@ -85,6 +85,44 @@ class Camera : public Node
     const core::Plane& getPlane(int i) const;
     float getNear() const;
     float getFar() const;
+#if GRIMROCK_GAME >= 2
+    // Up to six extra world space clip planes for the culling (a bit of the mask per
+    // plane), the mirrored winding of reflection cameras and the lod factor scaling the
+    // distances of the skinning, shadow and dissolve tests.
+    static constexpr int NumUserClipPlanes = 6;
+    void setUserClipPlane(int i, const core::Plane& plane)
+    {
+        m_userClipPlanes[i] = plane;
+    }
+    const core::Plane& getUserClipPlane(int i) const
+    {
+        return m_userClipPlanes[i];
+    }
+    unsigned int getUserClipPlaneMask() const
+    {
+        return m_userClipPlaneMask;
+    }
+    void setUserClipPlaneMask(unsigned int mask)
+    {
+        m_userClipPlaneMask = mask;
+    }
+    bool getInverseCulling() const
+    {
+        return m_inverseCulling;
+    }
+    void setInverseCulling(bool b)
+    {
+        m_inverseCulling = b;
+    }
+    float getLodFactor() const
+    {
+        return m_lodFactor;
+    }
+    void setLodFactor(float f)
+    {
+        m_lodFactor = f;
+    }
+#endif
     // Normalized device coordinates in [0,1] with y down; z is the clip space depth.
     core::Vec3 projectWorldPoint(const core::Vec3& p) const;
     // Rays from a screen position in [0,1] x [0,1].
@@ -104,9 +142,16 @@ class Camera : public Node
     mutable float m_near;
     mutable float m_far;
     mutable bool m_planesDirty;
+#if GRIMROCK_GAME >= 2
+    core::Plane m_userClipPlanes[NumUserClipPlanes];
+    unsigned int m_userClipPlaneMask;
+    bool m_inverseCulling;
+    float m_lodFactor;
+#endif
 };
 
-// WASD/QE fly camera driven by window events (0x080f77a0-0x080f97a0).
+// WASD/QE fly camera driven by window events (0x080f77a0-0x080f97a0, the second game
+// 0x004b5800-0x004b5ea0).
 class CameraControls : public core::EventHandler
 {
   public:

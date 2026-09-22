@@ -1,4 +1,6 @@
-// Reconstructed from grimrock2.exe ImmediateMode.cpp.
+// Reconstructed from grimrock2.exe ImmediateMode.cpp. The drawing that the two games
+// share is unchanged and keeps the addresses of the first binary (0x08...); the parts
+// that differ carry the address in grimrock2.exe (0x00...).
 #include "engine/ImmediateMode.h"
 #include "core/Array.h"
 #include "core/DebugDraw.h"

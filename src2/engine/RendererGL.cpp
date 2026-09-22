@@ -1147,7 +1147,7 @@ void RendererGL::renderScene(Scene& scene, Camera& camera, RenderableTexture* ta
 
     LightPrePassRendererGL* lpp = m_pLightPrePassRenderer;
     lpp->setViewport(m_viewportX, m_viewportY, m_viewportWidth, m_viewportHeight);
-    lpp->m_frame = m_pContext->getFrameCounter();
+    lpp->m_clearColor = m_clearColor;
     lpp->m_diffuseMapping = m_diffuseMapping;
     lpp->m_normalMapping = m_normalMapping;
     lpp->m_textureFilter = m_textureFilter;

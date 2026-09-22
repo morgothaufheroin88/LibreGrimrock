@@ -4,6 +4,7 @@
 // carry blurred shadow maps, directional lights cascaded ones, and meshes can dissolve.
 #pragma once
 #include "core/Array.h"
+#include "core/Color.h"
 #include "engine/RenderContextGL.h"
 #include "engine/RendererGL.h"
 
@@ -45,6 +46,8 @@ class LightPrePassRendererGL
     static constexpr int NumShadowMapSizes = 16; // indexed by log2(size)
     static constexpr int NumCascades = 4;
     static constexpr int StaticShadowMapSizeIndexLimit = 12;
+    // six frustum planes and one per silhouette edge of a cascade (0x004ecad0 reserves 16)
+    static constexpr int MaxShadowCasterPlanes = 16;
 
     // 0x004e90e0
     LightPrePassRendererGL(RenderContextGL* context, int width, int height);
@@ -93,15 +96,6 @@ class LightPrePassRendererGL
     {
         return m_projection;
     }
-
-    // settings copied from the renderer each frame (+0x1c..+0x28)
-    int m_frame;
-    bool m_diffuseMapping;
-    bool m_normalMapping;
-    bool m_renderMeshes;
-    bool m_renderShadows;
-    int m_textureFilter;
-    int m_shadowQuality;
 
   private:
     // 0x004ea9d0: sorted draw of the given meshes for a material pass
@@ -152,14 +146,26 @@ class LightPrePassRendererGL
     int m_width;
     int m_height;
     int m_viewportX, m_viewportY, m_viewportWidth, m_viewportHeight;
+
+  public:
+    // settings the renderer copies in before the passes (+0x1c..+0x28)
+    core::Color m_clearColor;
+    bool m_diffuseMapping;
+    bool m_normalMapping;
+    bool m_renderMeshes;
+    bool m_renderShadows;
+    int m_textureFilter;
+    int m_shadowQuality;
+
+  private:
     ParticleSystemRendererGL* m_pParticleRenderer;
     RenderVisitor* m_pShadowVisitor;
     BlurGL* m_pBlur;
     GLuint m_depthStencilBuffer;
     // shared: the scripts hand it to materials, which reference count it
     core::SharedPtr<RenderableTextureGL> m_pGeometryBuffer;
-    Texture2DGL* m_pGlossinessBuffer;
     Texture2DGL* m_pNormalBuffer;
+    Texture2DGL* m_pGlossinessBuffer;
     Texture2DGL* m_pLightBuffer;
     Texture2DGL* m_pFrameBuffer;
     Texture2DGL* m_shadowMaps[NumShadowMapSizes];

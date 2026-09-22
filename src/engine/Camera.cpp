@@ -35,11 +35,23 @@ void makeOrthoProjectionMatrix(Matrix4x4* m, const Vec3& mn, const Vec3& mx)
 }
 
 // 0x080f8ed0
-Camera::Camera() : m_matricesDirty(true), m_near(0.0f), m_far(0.0f), m_planesDirty(true) {}
+Camera::Camera() : m_matricesDirty(true), m_near(0.0f), m_far(0.0f), m_planesDirty(true)
+{
+#if GRIMROCK_GAME >= 2
+    m_userClipPlaneMask = 0;
+    m_inverseCulling = false;
+    m_lodFactor = 1.0f;
+#endif
+}
 // 0x080f89f0
 Camera::Camera(float fov, float aspect, float nearZ, float farZ)
     : m_matricesDirty(true), m_near(0.0f), m_far(0.0f), m_planesDirty(true)
 {
+#if GRIMROCK_GAME >= 2
+    m_userClipPlaneMask = 0;
+    m_inverseCulling = false;
+    m_lodFactor = 1.0f;
+#endif
     Matrix4x4 p;
     makePerspectiveProjectionMatrix(&p, fov, aspect, nearZ, farZ);
     setProjectionMatrix(p);
@@ -48,6 +60,11 @@ Camera::Camera(float fov, float aspect, float nearZ, float farZ)
 Camera::Camera(const Matrix4x4& projection)
     : m_matricesDirty(true), m_near(0.0f), m_far(0.0f), m_planesDirty(true)
 {
+#if GRIMROCK_GAME >= 2
+    m_userClipPlaneMask = 0;
+    m_inverseCulling = false;
+    m_lodFactor = 1.0f;
+#endif
     setProjectionMatrix(projection);
 }
 // 0x080f8040

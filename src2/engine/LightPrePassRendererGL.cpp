@@ -144,11 +144,11 @@ static float dissolveAmount(const MeshEntity& entity)
 
 // 0x004e90e0
 LightPrePassRendererGL::LightPrePassRendererGL(RenderContextGL* context, int width, int height)
-    : m_frame(0), m_diffuseMapping(true), m_normalMapping(true), m_renderMeshes(true),
-      m_renderShadows(true), m_textureFilter(0), m_shadowQuality(0), m_pContext(context),
-      m_width(width), m_height(height), m_viewportX(0), m_viewportY(0), m_viewportWidth(0),
-      m_viewportHeight(0), m_pParticleRenderer(0), m_pShadowVisitor(0), m_pBlur(0),
-      m_depthStencilBuffer(0), m_pGlossinessBuffer(0), m_pNormalBuffer(0), m_pLightBuffer(0),
+    : m_pContext(context), m_width(width), m_height(height), m_viewportX(0), m_viewportY(0),
+      m_viewportWidth(0), m_viewportHeight(0), m_clearColor(0, 0, 0, 0), m_diffuseMapping(true),
+      m_normalMapping(true), m_renderMeshes(true), m_renderShadows(true), m_textureFilter(0),
+      m_shadowQuality(0), m_pParticleRenderer(0), m_pShadowVisitor(0), m_pBlur(0),
+      m_depthStencilBuffer(0), m_pNormalBuffer(0), m_pGlossinessBuffer(0), m_pLightBuffer(0),
       m_pFrameBuffer(0), m_pDefaultShader(0), m_pDissolveShader(0), m_pAmbientLightProgram(0),
       m_pStencilProgram(0), m_pSpotLightStencilProgram(0), m_pBlurCubeMapProgram(0)
 {
@@ -667,8 +667,8 @@ void LightPrePassRendererGL::renderMaterialPass(const Camera& camera, const Rend
     glDepthMask(GL_FALSE);
     if (pass == MaterialPass_AmbientOcclusion)
     {
-        const Color& c = Renderer::getActiveRenderer()->m_clearColor;
-        glClearColor(c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, c.a / 255.0f);
+        glClearColor(m_clearColor.r / 255.0f, m_clearColor.g / 255.0f, m_clearColor.b / 255.0f,
+                     m_clearColor.a / 255.0f);
         glClear(GL_COLOR_BUFFER_BIT);
     }
     renderMeshes(camera, visitor.m_meshes.data(), visitor.m_meshes.size(), pass);
@@ -1571,6 +1571,90 @@ void LightPrePassRendererGL::renderSpotLightShadowMap(const LightEntity& light,
     checkGLErrors("spotlight shadow");
 }
 
+// 0x004d75e0: the plane through three points, its normal on the side the points wind
+// counter clockwise around.
+static Plane planeThroughPoints(const Vec3& a, const Vec3& b, const Vec3& c)
+{
+    return Plane(normalize(cross(b - a, c - a)), a);
+}
+
+// 0x004d7e00: the volume that can cast a shadow into one cascade of the view frustum:
+// the frustum planes of the camera that face away from the light, plus the silhouette
+// edges of the slice extruded along the light direction. Returns the number of planes
+// (at most MaxShadowCasterPlanes). The original shares the function between the GL and
+// the Direct3D light pre-pass renderers.
+static int getShadowCasterPlanes(const LightEntity& light, const Camera& camera, float cascadeStart,
+                                 float cascadeEnd, Plane* planes)
+{
+    // the corners of the near plane, counter clockwise from the top left
+    static constexpr float nearPlaneCorners[4][4] = {{-1.0f, 1.0f, 0.0f, 1.0f},
+                                                     {1.0f, 1.0f, 0.0f, 1.0f},
+                                                     {1.0f, -1.0f, 0.0f, 1.0f},
+                                                     {-1.0f, -1.0f, 0.0f, 1.0f}};
+    // the corners 0..3 are the near quad of the slice, 4..7 the far one; each face is
+    // three of them in winding order and each edge carries the two faces it joins
+    static constexpr int faces[6][3] = {{1, 2, 3}, {6, 5, 4}, {4, 5, 1},
+                                        {7, 3, 2}, {4, 0, 3}, {5, 6, 2}};
+    static constexpr int edges[12][4] = {{0, 1, 0, 2}, {1, 2, 0, 5}, {2, 3, 0, 3}, {3, 0, 0, 4},
+                                         {4, 5, 1, 2}, {5, 6, 1, 5}, {6, 7, 1, 3}, {7, 4, 1, 4},
+                                         {0, 4, 2, 4}, {1, 5, 2, 5}, {2, 6, 3, 5}, {3, 7, 3, 4}};
+
+    Vec3 lightDirection = light.getNode()->getLocalToWorldMatrix().z;
+    int numPlanes = 0;
+    for (int i = 0; i < 6; ++i)
+    {
+        const Plane& plane = camera.getPlane(i);
+        if (dot(plane.normal, lightDirection) < 0.0f)
+            planes[numPlanes++] = plane;
+    }
+
+    Vec3 corners[8];
+    const Matrix4x4& invProj = camera.getInverseProjectionMatrix();
+    float nearScale = cascadeStart / camera.getNear();
+    float farScale = cascadeEnd / camera.getNear();
+    for (int i = 0; i < 4; ++i)
+    {
+        Vec4 corner = invProj.transform(Vec4(nearPlaneCorners[i][0], nearPlaneCorners[i][1],
+                                             nearPlaneCorners[i][2], nearPlaneCorners[i][3]));
+        Vec3 direction(corner.x / corner.w, corner.y / corner.w, corner.z / corner.w);
+        corners[i] = direction * nearScale;
+        corners[i + 4] = direction * farScale;
+    }
+    const Matrix4x3& localToWorld = camera.getLocalToWorldMatrix();
+    for (int i = 0; i < 8; ++i)
+        corners[i] = localToWorld.transformPoint(corners[i]);
+
+    Vec3 faceNormals[6];
+    for (int i = 0; i < 6; ++i)
+    {
+        const Vec3& a = corners[faces[i][0]];
+        const Vec3& b = corners[faces[i][1]];
+        const Vec3& c = corners[faces[i][2]];
+        faceNormals[i] = normalize(cross(c - b, a - b));
+    }
+
+    Vec3 center = (corners[0] + corners[6]) * 0.5f;
+    for (int i = 0; i < 12; ++i)
+    {
+        float front = dot(faceNormals[edges[i][2]], lightDirection);
+        float back = dot(faceNormals[edges[i][3]], lightDirection);
+        if ((front > 0.0f && back < 0.0f) || (front < 0.0f && back > 0.0f))
+        {
+            const Vec3& a = corners[edges[i][0]];
+            const Vec3& b = corners[edges[i][1]];
+            Vec3 extruded = a + lightDirection;
+            Vec3 normal = cross(b - a, extruded - a);
+            if (dot(normal, normal) <= 0.0f)
+                continue; // a degenerate edge, the light runs along it
+            Plane plane = planeThroughPoints(a, b, extruded);
+            if (plane.distance(center) < 0.0f)
+                plane = Plane(plane.normal * -1.0f, -plane.d);
+            planes[numPlanes++] = plane;
+        }
+    }
+    return numPlanes;
+}
+
 // 0x004ecad0: orthographic map of the sphere around one cascade of the view frustum,
 // with the translation snapped to shadow map texels.
 void LightPrePassRendererGL::renderDirectionalLightShadowMap(
@@ -1600,18 +1684,9 @@ void LightPrePassRendererGL::renderDirectionalLightShadowMap(
     shadowViewProj.m[13] = floorf(shadowViewProj.m[13] * halfSize) / halfSize;
     Matrix4x4 flipY;
     flipY.m[5] = -1.0f;
-    // shadow casters: everything inside the light space box of the slice
-    Matrix4x3 lightToWorld = light.getNode()->getLocalToWorldMatrix();
-    Plane planes[6];
-    Vec3 axes[3] = {lightToWorld.x, lightToWorld.y, lightToWorld.z};
-    for (int a = 0; a < 3; ++a)
-    {
-        float lo = a == 0 ? mn.x : (a == 1 ? mn.y : mn.z);
-        float hi = a == 0 ? mx.x : (a == 1 ? mx.y : mx.z);
-        planes[a * 2] = Plane(axes[a], dot(axes[a], lightToWorld.pos) + lo);
-        planes[a * 2 + 1] = Plane(axes[a] * -1.0f, -(dot(axes[a], lightToWorld.pos) + hi));
-    }
-    m_pShadowVisitor->gatherShadowCasters(*light.getNode()->getScene(), camera, planes, 6);
+    Plane planes[MaxShadowCasterPlanes];
+    int numPlanes = getShadowCasterPlanes(light, camera, cascadeStart, cascadeEnd, planes);
+    m_pShadowVisitor->gatherShadowCasters(*light.getNode()->getScene(), camera, planes, numPlanes);
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_SCISSOR_TEST);
