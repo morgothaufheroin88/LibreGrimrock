@@ -98,6 +98,48 @@ behaviour of the original).
 `build-release/grimrock_archive grimrock.dat list | exists NAME | read NAME OUT |
 extract-all DIR | verify` inspects the game archive.
 
+## Legend of Grimrock 2
+
+The second game shares this engine, and the same tree builds it: `grimrock2` is
+configured with `GRIMROCK_GAME=2` and links the same core, engine and rapid
+libraries. It is reconstructed from `grimrock2.exe` (2.2.4, a 32-bit MSVC
+binary with the Direct3D 9, OpenGL, XAudio2 and libvpx back ends; only the GL
+and the OpenAL paths are reconstructed, as in the Linux build of the first
+game).
+
+```sh
+cmake --build build-release --target grimrock2
+cd build-release
+ln -s "$HOME/.local/share/Steam/steamapps/common/Legend of Grimrock 2/grimrock2.dat" .
+./grimrock2
+```
+
+`grimrock2.dat` is a GRA2 archive like the first one but with hashed names, so
+`grimrock_archive` reads a file by its path and cannot list the names.
+Configuration and saves live in `~/.local/share/Almost Human/Legend of
+Grimrock 2/`, and `steam_appid.txt` holds `251730`.
+
+Where the two games share a compilation unit, the differences are `#if
+GRIMROCK_GAME >= 2` inside it. Units that diverged too far, and the ones that
+only exist in the second game, live in `src2/<subdir>` and replace the file of
+the same name in `src/<subdir>` (headers too: `src2` comes first on the include
+path). A unit is in one place or the other, never both.
+
+What the second game adds to the engine: a deferred renderer with cascaded
+directional shadows, blurred point and spot shadow maps, dissolve shading and
+oblique near plane clipping; CPU occlusion culling; a forward "notebook"
+renderer; the heightmap terrain builder; VP8 cinematics through libvpx; the
+save game writer in native code; an inflating input stream and the directory
+watcher of the developer mode.
+
+Debugging aids of the second game (besides the ones above):
+`GRIMROCK_DEBUG_BUFFER=normal|glossiness|light|ssao` draws that intermediate
+buffer instead of the frame (the flags `Renderer.setFlag` sets),
+`GRIMROCK_DEBUG_NOSHADOWS=1` renders the lights without their shadow maps, and
+`GRIMROCK_DEBUG_LUA=<chunk>` runs a chunk from frame
+`GRIMROCK_DEBUG_LUA_FRAME` (600 by default) on, until it returns true, which is
+how the save and load paths are exercised without clicking through the menus.
+
 ## Installing into the Steam copy
 
 `tools/deploy_steam.sh [game dir]` builds `build-release` and installs the
@@ -170,6 +212,21 @@ registration tables, `tools/rdstr.py` reads strings and enum tables, and
 differ between the original and the reconstruction. `tools/catalog_lua.py` and
 `tools/check_lua.py` index and validate decompiled Lua drafts against the
 bytecode in the archive (using [ljd](https://github.com/Aussiemon/ljd)).
+
+The second binary is stripped, so the evidence for it is different and lives
+under `reverse/log2/`: `native/<address>.c` is the pseudocode of
+`grimrock2.exe`, `names.json` the names recovered by `tools/log2/match_log1.py`
+(the Lua binding tables are exact, the rest comes from shared string literals
+and call-site propagation from the first binary), `bindings.json` and
+`enums.txt` the registration tables, `vtables.json` the RTTI class names.
+`tools/log2/sbs2.py <address>` prints one function, `range.py START END` the
+functions of a region with their strings and GL calls, `fields.py` recovers the
+object layout of a class from the accesses through the this pointer (by address
+range, or from the `// 0x...` comments of a reconstructed source),
+`missing_bindings.py` and `diff_binding_bodies.py` compare the Lua surface with
+ours, and `coverage2.py` lists the functions of a region that no source claims
+(it leaves out the Direct3D 9 and XAudio2 back ends and counts a function as
+reconstructed when a source claims its first-game counterpart).
 
 Debugging aids (all off by default): `GRIMROCK_CAPTURE_DIR=<dir>` saves the next
 frame to `<dir>/capture.png` when `<dir>/take` exists
