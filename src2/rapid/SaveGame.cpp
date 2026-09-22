@@ -271,6 +271,28 @@ static int commonMatrixIndex(const Matrix4x3& m)
     }
     return -1;
 }
+// the fields of the Sphere, Box, Plane and Ray tables
+static Vec3 vectorField(lua_State* L, int index, const char* name)
+{
+    lua_getfield(L, index, name);
+    Vec3 v = luax::checkVector3(L, -1);
+    lua_pop(L, 1);
+    return v;
+}
+static double numberField(lua_State* L, int index, const char* name)
+{
+    lua_getfield(L, index, name);
+    double value = luaL_checknumber(L, -1);
+    lua_pop(L, 1);
+    return value;
+}
+static bool isIdentity(const Matrix4x3& m)
+{
+    return m.x.x == 1.0f && m.x.y == 0.0f && m.x.z == 0.0f && m.y.x == 0.0f && m.y.y == 1.0f &&
+           m.y.z == 0.0f && m.z.x == 0.0f && m.z.y == 0.0f && m.z.z == 1.0f && m.pos.x == 0.0f &&
+           m.pos.y == 0.0f && m.pos.z == 0.0f;
+}
+
 // the class tables of vec, mat, Sphere, Box, Plane and Ray are the metatables of their
 // values; index is made absolute because the lookup pushes onto the stack
 static bool hasMetatable(lua_State* L, int index, const char* name)
@@ -367,9 +389,7 @@ void NativeSaveGameOutputStream::writeValue(lua_State* L)
     else if (hasMetatable(L, -1, "mat"))
     {
         Matrix4x3 m = luax::checkMatrix4x3(L, index);
-        if (m.x.x == 1.0f && m.x.y == 0.0f && m.x.z == 0.0f && m.y.x == 0.0f && m.y.y == 1.0f &&
-            m.y.z == 0.0f && m.z.x == 0.0f && m.z.y == 0.0f && m.z.z == 1.0f && m.pos.x == 0.0f &&
-            m.pos.y == 0.0f && m.pos.z == 0.0f)
+        if (isIdentity(m))
         {
             out->writeByte((unsigned char)Tag_IdentityMat);
         }
@@ -394,48 +414,32 @@ void NativeSaveGameOutputStream::writeValue(lua_State* L)
     }
     else if (hasMetatable(L, -1, "Sphere"))
     {
-        lua_getfield(L, index, "pos");
-        Vec3 pos = luax::checkVector3(L, -1);
-        lua_pop(L, 1);
-        lua_getfield(L, index, "radius");
-        double radius = luaL_checknumber(L, -1);
-        lua_pop(L, 1);
+        Vec3 pos = vectorField(L, index, "pos");
+        double radius = numberField(L, index, "radius");
         out->writeByte((unsigned char)Tag_Sphere);
         writeVec(pos);
         out->writeDouble(radius);
     }
     else if (hasMetatable(L, -1, "Box"))
     {
-        lua_getfield(L, index, "pos");
-        Vec3 pos = luax::checkVector3(L, -1);
-        lua_pop(L, 1);
-        lua_getfield(L, index, "hsize");
-        Vec3 hsize = luax::checkVector3(L, -1);
-        lua_pop(L, 1);
+        Vec3 pos = vectorField(L, index, "pos");
+        Vec3 hsize = vectorField(L, index, "hsize");
         out->writeByte((unsigned char)Tag_Box);
         writeVec(pos);
         writeVec(hsize);
     }
     else if (hasMetatable(L, -1, "Plane"))
     {
-        lua_getfield(L, index, "n");
-        Vec3 n = luax::checkVector3(L, -1);
-        lua_pop(L, 1);
-        lua_getfield(L, index, "d");
-        double d = luaL_checknumber(L, -1);
-        lua_pop(L, 1);
+        Vec3 n = vectorField(L, index, "n");
+        double d = numberField(L, index, "d");
         out->writeByte((unsigned char)Tag_Plane);
         writeVec(n);
         out->writeDouble(d);
     }
     else if (hasMetatable(L, -1, "Ray"))
     {
-        lua_getfield(L, index, "pos");
-        Vec3 pos = luax::checkVector3(L, -1);
-        lua_pop(L, 1);
-        lua_getfield(L, index, "dir");
-        Vec3 dir = luax::checkVector3(L, -1);
-        lua_pop(L, 1);
+        Vec3 pos = vectorField(L, index, "pos");
+        Vec3 dir = vectorField(L, index, "dir");
         out->writeByte((unsigned char)Tag_Ray);
         writeVec(pos);
         writeVec(dir);

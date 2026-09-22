@@ -174,9 +174,12 @@ void ImmediateModeGL::drawInternal(int primitive, const IMVertex* verts, int cou
     offset = m_pContext->getStreamOffset() - count * (int)sizeof(IMVertex);
     memcpy(data, verts, count * sizeof(IMVertex));
     const char* base = (const char*)(intptr_t)offset;
-    glVertexAttribPointer(ShaderProgramGL::A_position, 3, GL_FLOAT, GL_FALSE, sizeof(IMVertex), base);
-    glVertexAttribPointer(ShaderProgramGL::A_texcoord, 2, GL_FLOAT, GL_FALSE, sizeof(IMVertex), base + 12);
-    glVertexAttribPointer(ShaderProgramGL::A_color, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(IMVertex), base + 20);
+    glVertexAttribPointer(ShaderProgramGL::A_position, 3, GL_FLOAT, GL_FALSE, sizeof(IMVertex),
+                          base);
+    glVertexAttribPointer(ShaderProgramGL::A_texcoord, 2, GL_FLOAT, GL_FALSE, sizeof(IMVertex),
+                          base + 12);
+    glVertexAttribPointer(ShaderProgramGL::A_color, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(IMVertex),
+                          base + 20);
     m_pContext->streamDrawPrimitive(primitive, count);
 }
 

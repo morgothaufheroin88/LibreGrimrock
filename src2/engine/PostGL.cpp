@@ -317,8 +317,10 @@ void FogFilterGL::renderParticles(Texture2DGL* geometryBuffer)
     if (!out)
         return;
     const char* base = (const char*)(intptr_t)(m_pContext->getStreamOffset() - bytes);
-    glVertexAttribPointer(ShaderProgramGL::A_position, 3, GL_FLOAT, GL_FALSE, sizeof(FogParticleVertex), base);
-    glVertexAttribPointer(ShaderProgramGL::A_texcoord, 4, GL_FLOAT, GL_FALSE, sizeof(FogParticleVertex), base + 12);
+    glVertexAttribPointer(ShaderProgramGL::A_position, 3, GL_FLOAT, GL_FALSE,
+                          sizeof(FogParticleVertex), base);
+    glVertexAttribPointer(ShaderProgramGL::A_texcoord, 4, GL_FLOAT, GL_FALSE,
+                          sizeof(FogParticleVertex), base + 12);
     static constexpr float corners[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
     for (int i = 0; i < count; ++i)
     {

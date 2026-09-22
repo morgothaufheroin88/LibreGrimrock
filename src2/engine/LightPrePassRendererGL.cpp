@@ -466,10 +466,8 @@ void LightPrePassRendererGL::renderGeometryPass(const Camera& camera, const Rend
         }
         if (skinned)
             m_pContext->setSkinningMatrices(entity);
-        Vec4 tso = mesh->getTexcoordScaleOffset();
-        const Vec4& mtso = material->getTexcoordScaleOffset();
         program->setUniform(ShaderProgramGL::U_texcoordScaleOffset,
-                            Vec4(mtso.x * tso.x, mtso.y * tso.y, mtso.z + tso.z, mtso.w + tso.w));
+                            mesh->getTexcoordScaleOffset(*material));
         if (dissolve > 0.0f)
             program->setUniform(ShaderProgramGL::U_dissolve, dissolve);
         if (material != currentMaterial)
@@ -495,12 +493,9 @@ void LightPrePassRendererGL::renderGeometryPass(const Camera& camera, const Rend
             ++g_renderStats.bindMaterial;
             currentMaterial = material;
         }
-        const RenderableMeshGL::Segment& segment = mesh->getSegment(item.segment);
-        glDrawElements(GL_TRIANGLES, segment.primitiveCount * 3,
-                       mesh->getIndexSize() == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT,
-                       (const void*)(intptr_t)(segment.firstIndex * mesh->getIndexSize()));
+        mesh->drawSegment(item.segment);
         ++g_renderStats.drawSegments;
-        g_renderStats.renderTriangles += segment.primitiveCount;
+        g_renderStats.renderTriangles += mesh->getSegment(item.segment).primitiveCount;
     }
     glDrawBuffers(1, buffers);
 }
@@ -603,10 +598,8 @@ void LightPrePassRendererGL::renderMeshes(const Camera& camera, MeshEntity* cons
             m_pContext->setSkinningMatrices(entity);
         const Vec3& emissive = entity.getEmissiveColor();
         program->setUniform(ShaderProgramGL::U_emissiveColor, emissive);
-        Vec4 tso = mesh->getTexcoordScaleOffset();
-        const Vec4& mtso = material->getTexcoordScaleOffset();
         program->setUniform(ShaderProgramGL::U_texcoordScaleOffset,
-                            Vec4(mtso.x * tso.x, mtso.y * tso.y, mtso.z + tso.z, mtso.w + tso.w));
+                            mesh->getTexcoordScaleOffset(*material));
         if (dissolve > 0.0f)
             program->setUniform(ShaderProgramGL::U_dissolve, dissolve);
         if (material != currentMaterial)
@@ -643,12 +636,9 @@ void LightPrePassRendererGL::renderMeshes(const Camera& camera, MeshEntity* cons
             ++g_renderStats.bindMaterial;
             currentMaterial = material;
         }
-        const RenderableMeshGL::Segment& segment = mesh->getSegment(item.segment);
-        glDrawElements(GL_TRIANGLES, segment.primitiveCount * 3,
-                       mesh->getIndexSize() == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT,
-                       (const void*)(intptr_t)(segment.firstIndex * mesh->getIndexSize()));
+        mesh->drawSegment(item.segment);
         ++g_renderStats.drawSegments;
-        g_renderStats.renderTriangles += segment.primitiveCount;
+        g_renderStats.renderTriangles += mesh->getSegment(item.segment).primitiveCount;
     }
 }
 
@@ -1352,11 +1342,8 @@ void LightPrePassRendererGL::renderShadowMeshes(const Array<MeshEntity*>& meshes
             m_pContext->setSkinningMatrices(entity);
         if (material->getAlphaTest())
         {
-            Vec4 tso = mesh->getTexcoordScaleOffset();
-            const Vec4& mtso = material->getTexcoordScaleOffset();
-            program->setUniform(
-                ShaderProgramGL::U_texcoordScaleOffset,
-                Vec4(mtso.x * tso.x, mtso.y * tso.y, mtso.z + tso.z, mtso.w + tso.w));
+            program->setUniform(ShaderProgramGL::U_texcoordScaleOffset,
+                                mesh->getTexcoordScaleOffset(*material));
         }
         if (material != currentMaterial)
         {
@@ -1375,10 +1362,7 @@ void LightPrePassRendererGL::renderShadowMeshes(const Array<MeshEntity*>& meshes
             ++g_renderStats.bindMaterial;
             currentMaterial = material;
         }
-        const RenderableMeshGL::Segment& segment = mesh->getSegment(item.segment);
-        glDrawElements(GL_TRIANGLES, segment.primitiveCount * 3,
-                       mesh->getIndexSize() == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT,
-                       (const void*)(intptr_t)(segment.firstIndex * mesh->getIndexSize()));
+        mesh->drawSegment(item.segment);
         ++g_renderStats.shadowSegments;
     }
     currentProgram = 0;
@@ -1401,8 +1385,7 @@ void LightPrePassRendererGL::renderShadowMeshes(const Array<MeshEntity*>& meshes
             m_pContext->setSkinningMatrices(entity);
         Matrix4x4 modelView = view * Matrix4x4(entity.getNode()->getLocalToWorldMatrix());
         program->setUniform(ShaderProgramGL::U_modelView, modelView);
-        glDrawElements(GL_TRIANGLES, mesh->getNumIndices(),
-                       mesh->getIndexSize() == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, 0);
+        mesh->drawAllIndices();
         ++g_renderStats.shadowSegments;
     }
 }

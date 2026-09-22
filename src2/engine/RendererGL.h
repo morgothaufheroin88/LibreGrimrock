@@ -171,6 +171,31 @@ class RenderableMeshGL : public RenderableMesh
     {
         return m_indexSize;
     }
+    // Reconstruction helpers: the renderers of the original spell these out at each draw.
+    // One triangle segment, and the whole index buffer (the shadow pass of meshes whose
+    // segments all cast plain shadows).
+    void drawSegment(int index) const
+    {
+        const Segment& segment = m_segments[index];
+        glDrawElements(GL_TRIANGLES, segment.primitiveCount * 3, getIndexType(),
+                       (const void*)(intptr_t)(segment.firstIndex * m_indexSize));
+    }
+    void drawAllIndices() const
+    {
+        glDrawElements(GL_TRIANGLES, m_numIndices, getIndexType(), 0);
+    }
+    GLenum getIndexType() const
+    {
+        return m_indexSize == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
+    }
+    // The texture coordinate transform of a segment: the mesh's quantisation (scale, offset)
+    // under the material's own scale and offset.
+    core::Vec4 getTexcoordScaleOffset(const Material& material) const
+    {
+        core::Vec4 mesh = getTexcoordScaleOffset();
+        const core::Vec4& own = material.getTexcoordScaleOffset();
+        return core::Vec4(own.x * mesh.x, own.y * mesh.y, own.z + mesh.z, own.w + mesh.w);
+    }
     int getNumIndices() const
     {
         return m_numIndices;

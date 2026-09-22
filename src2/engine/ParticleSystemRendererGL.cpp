@@ -150,10 +150,14 @@ void ParticleSystemRendererGL::renderParticleSystem(const Camera& camera,
         if (!out)
             continue;
         const char* base = (const char*)(intptr_t)(m_pContext->getStreamOffset() - bytes);
-        glVertexAttribPointer(ShaderProgramGL::A_position, 3, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), base);
-        glVertexAttribPointer(ShaderProgramGL::A_velocity, 3, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), base + 12);
-        glVertexAttribPointer(ShaderProgramGL::A_texcoord, 2, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), base + 24);
-        glVertexAttribPointer(ShaderProgramGL::A_particleParms, 4, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), base + 32);
+        glVertexAttribPointer(ShaderProgramGL::A_position, 3, GL_FLOAT, GL_FALSE,
+                              sizeof(ParticleVertex), base);
+        glVertexAttribPointer(ShaderProgramGL::A_velocity, 3, GL_FLOAT, GL_FALSE,
+                              sizeof(ParticleVertex), base + 12);
+        glVertexAttribPointer(ShaderProgramGL::A_texcoord, 2, GL_FLOAT, GL_FALSE,
+                              sizeof(ParticleVertex), base + 24);
+        glVertexAttribPointer(ShaderProgramGL::A_particleParms, 4, GL_FLOAT, GL_FALSE,
+                              sizeof(ParticleVertex), base + 32);
         const Array<Particle>& particles = state->getParticles();
         static constexpr float corners[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
         int written = 0;

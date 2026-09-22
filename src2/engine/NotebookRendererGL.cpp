@@ -343,10 +343,8 @@ void NotebookRendererGL::renderMeshes(const Camera& camera, MeshEntity* const* m
             m_pContext->setSkinningMatrices(entity);
         const Vec3& emissive = entity.getEmissiveColor();
         program->setUniform(ShaderProgramGL::U_emissiveColor, emissive);
-        Vec4 tso = mesh->getTexcoordScaleOffset();
-        const Vec4& mtso = material->getTexcoordScaleOffset();
         program->setUniform(ShaderProgramGL::U_texcoordScaleOffset,
-                            Vec4(mtso.x * tso.x, mtso.y * tso.y, mtso.z + tso.z, mtso.w + tso.w));
+                            mesh->getTexcoordScaleOffset(*material));
         if (material != currentMaterial)
         {
             if (material->getDoubleSided())
@@ -376,12 +374,9 @@ void NotebookRendererGL::renderMeshes(const Camera& camera, MeshEntity* const* m
             ++g_renderStats.bindMaterial;
             currentMaterial = material;
         }
-        const RenderableMeshGL::Segment& segment = mesh->getSegment(item.segment);
-        glDrawElements(GL_TRIANGLES, segment.primitiveCount * 3,
-                       mesh->getIndexSize() == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT,
-                       (const void*)(intptr_t)(segment.firstIndex * mesh->getIndexSize()));
+        mesh->drawSegment(item.segment);
         ++g_renderStats.drawSegments;
-        g_renderStats.renderTriangles += segment.primitiveCount;
+        g_renderStats.renderTriangles += mesh->getSegment(item.segment).primitiveCount;
     }
 }
 
