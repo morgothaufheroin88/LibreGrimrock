@@ -141,8 +141,8 @@ void Profiler::draw()
         float milliseconds = block.time * 1000.0f;
         if (milliseconds <= 0.0f)
             milliseconds = 0.0f;
-        sprintf(text, "%-30s %3d / %5.2fms / %5.1f%%", block.name, block.count, milliseconds,
-                percent);
+        snprintf(text, sizeof(text), "%-30s %3d / %5.2fms / %5.1f%%", block.name, block.count,
+                 milliseconds, percent);
         DebugDraw::drawText(text, Vec2(TextX, y), Color::White);
         y += LineHeight;
     }
@@ -152,7 +152,8 @@ void Profiler::draw()
     float milliseconds = g_unclassifiedTime * 1000.0f;
     if (milliseconds <= 0.0f)
         milliseconds = 0.0f;
-    sprintf(text, "%-30s       %5.2fms / %5.1f%%", "Unclassified", milliseconds, percent);
+    snprintf(text, sizeof(text), "%-30s       %5.2fms / %5.1f%%", "Unclassified", milliseconds,
+             percent);
     DebugDraw::drawText(text, Vec2(TextX, y), Color::White);
 }
 

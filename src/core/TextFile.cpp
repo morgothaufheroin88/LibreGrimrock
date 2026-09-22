@@ -1,6 +1,7 @@
 // Reconstructed from Grimrock.bin.x86 TextFile.cpp.
 #include "core/TextFile.h"
 #include <cctype>
+#include <cfloat>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -174,21 +175,23 @@ void TextFileWriter::writeShort(unsigned short v)
 void TextFileWriter::writeInt(unsigned int v)
 {
     char buffer[32];
-    sprintf(buffer, "%d", (int)v);
+    snprintf(buffer, sizeof(buffer), "%d", (int)v);
     writeString(String(buffer));
 }
 // 0x080bb980
 void TextFileWriter::writeFloat(float v)
 {
-    char buffer[32];
-    sprintf(buffer, "%f", (double)v);
+    // "%f" writes every integer digit: FLT_MAX takes 47 characters (the original's 32
+    // byte buffer overflowed on large values)
+    char buffer[64];
+    snprintf(buffer, sizeof(buffer), "%f", (double)v);
     writeString(String(buffer));
 }
 // 0x080bbb20
 void TextFileWriter::writeDouble(double v)
 {
-    char buffer[32];
-    sprintf(buffer, "%f", v);
+    char buffer[DBL_MAX_10_EXP + 16]; // every integer digit of DBL_MAX, sign, point, six decimals
+    snprintf(buffer, sizeof(buffer), "%f", v);
     writeString(String(buffer));
 }
 // 0x080bbbf0

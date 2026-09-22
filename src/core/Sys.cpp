@@ -210,7 +210,7 @@ String sysCreateGuid()
     (void)wordsRead;
     fclose(urandom);
     char buffer[40];
-    sprintf(buffer, "%04x%04x%04x%04x", words[0], words[1], words[2], words[3]);
+    snprintf(buffer, sizeof(buffer), "%04x%04x%04x%04x", words[0], words[1], words[2], words[3]);
     return String(buffer);
 }
 

@@ -8,7 +8,9 @@
 #include "core/Prim.h"
 #include "core/SharedPtr.h"
 #include "core/String.h"
+#include "core/TextFile.h"
 #include "core/Utils.h"
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -275,6 +277,33 @@ static void testTempFilename()
     rmdir(directory);
 }
 
+// TextFileWriter prints floats with "%f", which writes every integer digit
+static void testTextFileNumbers()
+{
+    char path[] = "/tmp/grimrock_test_XXXXXX";
+    int fd = mkstemp(path);
+    if (fd < 0)
+    {
+        REQUIRE(false);
+        return;
+    }
+    close(fd);
+    {
+        core::TextFileWriter writer(path);
+        writer.writeFloat(FLT_MAX);
+        writer.writeString(core::String(" "));
+        writer.writeDouble(1e300);
+    }
+    FILE* file = fopen(path, "r");
+    char text[512] = {0};
+    size_t length = file ? fread(text, 1, sizeof(text) - 1, file) : 0;
+    if (file)
+        fclose(file);
+    REQUIRE(length > 47 + 300);
+    REQUIRE(strncmp(text, "340282346638528859811704183484516925440.000000 1", 48) == 0);
+    remove(path);
+}
+
 int main()
 {
     testString();
@@ -284,6 +313,7 @@ int main()
     testMath();
     testUtils();
     testTempFilename();
+    testTextFileNumbers();
     testImage();
     try
     {
