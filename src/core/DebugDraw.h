@@ -40,12 +40,12 @@ class DebugDraw
     static void drawLine(const Vec2& a, const Vec2& b, const Color& color);
     static void drawText(const char* text, const Vec2& pos, const Color& color);
     static void drawText(const char* text, const Vec3& pos, const Color& color);
-    static void drawBox(const Vec2& min, const Vec2& max, const Color& color);
+    static void drawBox(const Vec2& mn, const Vec2& mx, const Color& color);
     static void drawBox(const AABox2& box, const Color& color);
-    static void drawBox(const Vec3& min, const Vec3& max, const Matrix4x3& m, const Color& color);
+    static void drawBox(const Vec3& mn, const Vec3& mx, const Matrix4x3& m, const Color& color);
     static void drawBox(const AABox3& box, const Matrix4x3& m, const Color& color);
     static void drawBox(const AABox3& box, const Color& color);
-    static void drawBox(const Vec3& min, const Vec3& max, const Color& color);
+    static void drawBox(const Vec3& mn, const Vec3& mx, const Color& color);
     static void drawSphere(const Vec3& center, float radius, const Color& color, int segments = 8);
     static void drawSphere(const Vec3& center, float radius, const Matrix4x3& m, const Color& color,
                            int segments = 8);

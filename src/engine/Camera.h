@@ -50,7 +50,7 @@ namespace engine
 // D3D style clip space: z in [0, 1], w = z. (0x080f7870 / 0x080f7710)
 void makePerspectiveProjectionMatrix(core::Matrix4x4* m, float fov, float aspect, float nearZ,
                                      float farZ);
-void makeOrthoProjectionMatrix(core::Matrix4x4* m, const core::Vec3& min, const core::Vec3& max);
+void makeOrthoProjectionMatrix(core::Matrix4x4* m, const core::Vec3& mn, const core::Vec3& mx);
 
 class Camera : public Node
 {

@@ -108,11 +108,11 @@ class Window
 
   private:
     void initializeKeyMap();
-    void onKey(const SDL_KeyboardEvent& e);
-    void onText(const SDL_TextInputEvent& e);
-    void onMouseButton(const SDL_MouseButtonEvent& e);
-    void onMouseMove(const SDL_MouseMotionEvent& e);
-    void onMouseWheel(const SDL_MouseWheelEvent& e);
+    void onKey(const SDL_KeyboardEvent& sdlEvent);
+    void onText(const SDL_TextInputEvent& sdlEvent);
+    void onMouseButton(const SDL_MouseButtonEvent& sdlEvent);
+    void onMouseMove(const SDL_MouseMotionEvent& sdlEvent);
+    void onMouseWheel(const SDL_MouseWheelEvent& sdlEvent);
     void onMenu(int id);
     void onFocus(bool focused);
     void onResize(int width, int height);

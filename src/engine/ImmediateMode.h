@@ -110,7 +110,7 @@ void drawRoundedRect(int x, int y, int width, int height, float radius, const co
 void fillRoundedRect(int x, int y, int width, int height, float radius, const core::Color& color);
 void fillRoundedRectAA(int x, int y, int width, int height, float radius, const core::Color& color);
 void drawEllipse(int x0, int y0, int x1, int y1, int segments, const core::Color& color);
-void drawEllipse(const core::Vec2& min, const core::Vec2& max, int segments,
+void drawEllipse(const core::Vec2& mn, const core::Vec2& mx, int segments,
                  const core::Color& color);
 void fillPolygon(const core::Vec2* points, int count, const core::Color& color);
 void fillPolygonAA(const core::Vec2* points, int count, const core::Color& color);

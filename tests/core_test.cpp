@@ -13,6 +13,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <unistd.h>
 
 static int failures = 0;
 #define REQUIRE(c)                                                                                 \
@@ -248,6 +250,31 @@ static void testArchive()
     REQUIRE(!core::fileExists("init.lua"));
 }
 
+// getTempFilename: the run of '#' becomes a zero padded counter, the first free one; the
+// rest of the pattern is taken as it is, '%' included
+static void testTempFilename()
+{
+    char directory[] = "/tmp/grimrock_test_XXXXXX";
+    if (!mkdtemp(directory))
+    {
+        REQUIRE(false);
+        return;
+    }
+    std::string base = std::string(directory) + "/100%s shot ";
+    core::String first = core::getTempFilename((base + "###.png").c_str());
+    REQUIRE(strcmp(first.c_str(), (base + "001.png").c_str()) == 0);
+    FILE* taken = fopen(first.c_str(), "w");
+    REQUIRE(taken != nullptr);
+    if (taken)
+        fclose(taken);
+    core::String second = core::getTempFilename((base + "###.png").c_str());
+    REQUIRE(strcmp(second.c_str(), (base + "002.png").c_str()) == 0);
+    core::String plain = core::getTempFilename((base + "plain.png").c_str());
+    REQUIRE(strcmp(plain.c_str(), (base + "plain.png").c_str()) == 0);
+    remove(first.c_str());
+    rmdir(directory);
+}
+
 int main()
 {
     testString();
@@ -256,6 +283,7 @@ int main()
     testSharedPtr();
     testMath();
     testUtils();
+    testTempFilename();
     testImage();
     try
     {

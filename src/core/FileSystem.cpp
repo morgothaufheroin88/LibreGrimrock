@@ -218,18 +218,20 @@ String getTempFilename(const char* pattern)
     int count = name.count("#", 0);
     if (count == 0)
         return name;
-    String suffix = name.substr(last + 1, -1);
-    String fmt = formatString("%%0%dd", count);
     String prefix = name.substr(0, first - 1);
-    String format(prefix);
-    format.append(fmt);
-    format.append(suffix);
-    char buffer[512];
+    String suffix = name.substr(last + 1, -1);
+    // Only the counter is formatted. The original built a printf format out of the whole
+    // pattern, which breaks on a '%' in the path around it and overflowed a 512 byte buffer
+    // on a long one.
     for (int i = 1; i != 0x7fffffff; ++i)
     {
-        sprintf(buffer, format.c_str(), i);
-        if (!fileExists(buffer))
-            return String(buffer);
+        char counter[32];
+        snprintf(counter, sizeof(counter), "%0*d", count < 20 ? count : 20, i);
+        String candidate(prefix);
+        candidate.append(counter);
+        candidate.append(suffix);
+        if (!fileExists(candidate.c_str()))
+            return candidate;
     }
     return String("");
 }

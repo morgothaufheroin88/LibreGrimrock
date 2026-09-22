@@ -326,23 +326,23 @@ Matrix4x4::Matrix4x4(float m00, float m01, float m02, float m03, float m10, floa
     m[15] = m33;
 }
 // 0x080b2700
-Matrix4x4::Matrix4x4(const Matrix4x3& a)
+Matrix4x4::Matrix4x4(const Matrix4x3& mat)
 {
-    m[0] = a.x.x;
-    m[1] = a.x.y;
-    m[2] = a.x.z;
+    m[0] = mat.x.x;
+    m[1] = mat.x.y;
+    m[2] = mat.x.z;
     m[3] = 0;
-    m[4] = a.y.x;
-    m[5] = a.y.y;
-    m[6] = a.y.z;
+    m[4] = mat.y.x;
+    m[5] = mat.y.y;
+    m[6] = mat.y.z;
     m[7] = 0;
-    m[8] = a.z.x;
-    m[9] = a.z.y;
-    m[10] = a.z.z;
+    m[8] = mat.z.x;
+    m[9] = mat.z.y;
+    m[10] = mat.z.z;
     m[11] = 0;
-    m[12] = a.pos.x;
-    m[13] = a.pos.y;
-    m[14] = a.pos.z;
+    m[12] = mat.pos.x;
+    m[13] = mat.pos.y;
+    m[14] = mat.pos.z;
     m[15] = 1;
 }
 // 0x080b2790

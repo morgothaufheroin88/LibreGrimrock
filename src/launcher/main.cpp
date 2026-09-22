@@ -58,6 +58,14 @@ std::string directoryOf(const std::string& path)
     return slash == std::string::npos ? "." : path.substr(0, slash);
 }
 
+// a game number, or -1 for anything that is not one
+int parseGameNumber(const char* text)
+{
+    char* end = nullptr;
+    long number = strtol(text, &end, 10);
+    return end != text && *end == 0 && number > 0 && number < 100 ? (int)number : -1;
+}
+
 // the launcher's switches, taken out of the command line
 struct Options
 {
@@ -76,12 +84,12 @@ Options takeOptions(std::vector<char*>& args)
         size_t taken = 0;
         if (arg.compare(0, 7, "--game=") == 0)
         {
-            options.game = atoi(arg.c_str() + 7);
+            options.game = parseGameNumber(arg.c_str() + 7);
             taken = 1;
         }
         else if (arg == "--game" && i + 1 < args.size())
         {
-            options.game = atoi(args[i + 1]);
+            options.game = parseGameNumber(args[i + 1]);
             taken = 2;
         }
         else if (arg.compare(0, 7, "--data=") == 0)
@@ -105,7 +113,7 @@ Options takeOptions(std::vector<char*>& args)
             ++i;
     }
     if (options.game && !findGame(options.game))
-        options.invalid = true;
+        options.invalid = true; // not a number, or not a game we know
     return options;
 }
 
@@ -181,8 +189,7 @@ int main(int argc, char** argv)
     Options options = takeOptions(args);
     if (options.invalid)
     {
-        fail("--game takes 1 (Legend of Grimrock) or 2 (Legend of Grimrock 2), not " +
-             std::to_string(options.game) + ".");
+        fail("--game takes 1 (Legend of Grimrock) or 2 (Legend of Grimrock 2).");
         return 1;
     }
     std::string launcherDirectory = directoryOf(executablePath());

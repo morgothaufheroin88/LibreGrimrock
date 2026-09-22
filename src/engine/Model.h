@@ -68,6 +68,6 @@ class ModelAssetProcessor : public SingleFileAssetProcessor
 // 0x080fc6e0: cached by filename, goes through the model asset processor.
 Model* loadModel(const char* filename, bool keepSourceData);
 // 0x080fd0a0: all meshes of a model file merged into world space.
-Mesh* meshLoader(core::InputStream& stream);
+Mesh* meshLoader(core::InputStream& in);
 
 } // namespace engine

@@ -335,12 +335,12 @@ void sysGetMemoryStatus(MemoryStatus& status)
     status.availableVirtual =
         status.availablePhysical + (unsigned long long)si.freeswap * si.mem_unit;
 }
-// grimrock2.exe 0x0040b260 (ShellExecute "open")
+// grimrock2.exe 0x0040b260 (ShellExecute "open"). SDL hands the URL to the desktop's
+// handler without a shell in between, so a quote in it cannot turn into a command.
 void sysOpenURL(const char* url)
 {
-    String command = formatString("xdg-open '%s' >/dev/null 2>&1 &", url);
-    if (system(command.c_str()) != 0)
-        debugPrint("sysOpenURL: could not open %s\n", url);
+    if (!SDL_OpenURL(url))
+        debugPrint("sysOpenURL: could not open %s (%s)\n", url, SDL_GetError());
 }
 bool sysGetWorkArea(int& left, int& top, int& right, int& bottom)
 {

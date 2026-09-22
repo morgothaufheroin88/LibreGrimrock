@@ -73,7 +73,7 @@ class LightPrePassRendererGL
     void renderPointLightStencil(const Camera& camera, const LightEntity& light);
     void renderSpotLight(const Camera& camera, const LightEntity& light);
     // 0x0811a8c0: returns the covered pixel count, 0 if the light is not visible.
-    int setupPointLightScissorRect(const Camera& camera, const core::Vec3& lightPos, float range);
+    int setupPointLightScissorRect(const Camera& camera, const core::Vec3& lightPos, float radius);
     void renderPointLightShadowMap(const LightEntity& light, TextureCubeGL* cube,
                                    GLuint depthBuffer, bool staticOnly);
     void blurCubeMapGPU(TextureCubeGL* source, TextureCubeGL* target, float blurAngle);
