@@ -24,10 +24,12 @@ static const char* const g_iconName = "grimrock.png";
 #endif
 
 // The original used binreloc (br_init / br_find_exe_dir) to change to the executable
-// directory before mounting the archive.
+// directory before mounting the archive. The launcher can point the game at an install
+// elsewhere (a Steam library, a folder the player chose) through GRIMROCK_DATA_DIR.
 static void changeToExeDir()
 {
-    const char* base = SDL_GetBasePath();
+    const char* data = getenv("GRIMROCK_DATA_DIR");
+    const char* base = data && *data ? data : SDL_GetBasePath();
     if (base && chdir(base) != 0)
         fprintf(stderr, "chdir(%s) failed\n", base);
 }

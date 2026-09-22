@@ -292,6 +292,8 @@ bool Window::processMessages()
         switch (sdlEvent.type)
         {
         case SDL_EVENT_QUIT:
+            // not in the original: the window system or a signal ends the game
+            debugPrint("Window: quit requested\n");
             return false;
         case SDL_EVENT_WINDOW_MOVED:
             onMove(sdlEvent.window.data1, sdlEvent.window.data2);

@@ -23,6 +23,8 @@ pkg_check_modules(MINIZIP REQUIRED IMPORTED_TARGET minizip)
 # libvpx decodes the cinematics of Legend of Grimrock 2 (IVF/VP8); without it the
 # second game's video player skips the videos.
 pkg_check_modules(VPX IMPORTED_TARGET vpx)
+# the launcher finds its fonts through fontconfig (without it, a few common font files)
+pkg_check_modules(FONTCONFIG IMPORTED_TARGET fontconfig)
 
 # LuaJIT 2.0.0-rc3 (tools/fetch_deps.sh builds it into third_party/luajit); a system LuaJIT
 # 2.0.x also loads the game's bytecode, 2.1 does not.
@@ -134,8 +136,14 @@ add_game(2 grimrock2 grimrock2_core grimrock2_engine "${CORE2_SOURCES}" "${ENGIN
 # the launcher: one executable for both games; ./grimrock2 (a symlink to it) runs the
 # second game
 if(TARGET grimrock1 OR TARGET grimrock2)
-    add_executable(grimrock src/launcher/main.cpp)
-    target_link_libraries(grimrock PRIVATE SDL3::SDL3 ${CMAKE_DL_LIBS})
+    file(GLOB LAUNCHER_SOURCES CONFIGURE_DEPENDS src/launcher/*.cpp)
+    add_executable(grimrock ${LAUNCHER_SOURCES})
+    target_include_directories(grimrock SYSTEM PRIVATE third_party)
+    target_link_libraries(grimrock PRIVATE SDL3::SDL3 PkgConfig::FREETYPE ${CMAKE_DL_LIBS})
+    if(FONTCONFIG_FOUND)
+        target_compile_definitions(grimrock PRIVATE LAUNCHER_HAVE_FONTCONFIG=1)
+        target_link_libraries(grimrock PRIVATE PkgConfig::FONTCONFIG)
+    endif()
     target_compile_options(grimrock PRIVATE -Wall -Wextra)
     set_target_properties(grimrock PROPERTIES BUILD_RPATH "$ORIGIN/lib64:$ORIGIN"
                                               INSTALL_RPATH "$ORIGIN/lib64:$ORIGIN")

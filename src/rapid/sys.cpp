@@ -474,6 +474,8 @@ static int sys_getSystemInfo(lua_State* L)
 #endif
 static int sys_exit(lua_State* L)
 {
+    // not in the original: says which way the game ended, next to the window closing
+    core::debugPrint("sys.exit: the scripts end the game\n");
     g_pRapidEngine->quit();
     return 0;
 }

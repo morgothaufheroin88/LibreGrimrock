@@ -80,13 +80,20 @@ ctest --test-dir build-release
 Both games run from one executable, `grimrock`. Each game's engine is a module
 next to it (`libgrimrock1.so`, `libgrimrock2.so`, the reconstructions of the two
 original executables, whose only entry point is the original `main`); the
-executable picks the game and loads that module. The game is, in this order:
+executable picks the game and loads that module.
 
-- `--game 1` or `--game 2` on the command line (not passed on to the game);
-- the name it was started as: `grimrock2` (the build creates that symlink) runs
-  the second game;
-- the data next to the executable: `grimrock.dat` or `grimrock2.dat`, the first
-  game when both are there.
+When the choice is clear the game starts at once: `--game 1` or `--game 2` on
+the command line, the name it was started as (`grimrock2`, a symlink the build
+creates, runs the second game), or the data of exactly one game next to the
+executable (a Steam or GOG install the launcher was deployed into).
+
+Otherwise -- both games or none next to it, or `--launcher` -- a window lists
+the two games with their icons and where they were found: next to the launcher,
+in a Steam library (including the ones `libraryfolders.vdf` lists), in a GOG
+install, or in a folder chosen earlier with *Locate…* (remembered in
+`~/.config/LibreGrimrock/launcher.cfg`). *Play*, a double click or Enter starts
+the game in a fresh process; `--data <folder>` does the same from the command
+line. The launcher's switches are not passed on to the game.
 
 The game changes to the executable's directory at start (like the original) and
 expects its data there; symlinks are fine:
