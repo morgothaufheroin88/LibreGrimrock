@@ -236,8 +236,11 @@ claims: `stubcheck2.py` reports the strings and GL calls the original uses and
 ours does not, `constcheck2.py` the float literals, and `enumcheck2.py`
 compares the `luax::Enum` tables of the sources with the ones recovered from
 the binary (names and order, which is what the scripts pass and the engine
-stores). `icon.py` writes the window icon out of the executable's resources as
-`grimrock2.png`, which the Linux build loads instead of calling LoadIcon.
+stores). `shadercheck.py` reads every shader the sources load out of `grimrock2.dat`,
+follows its includes and reports the uniforms no source names, which is how an
+effect that renders but is fed wrong shows up. `icon.py` writes the window icon
+out of the executable's resources as `grimrock2.png`, which the Linux build
+loads instead of calling LoadIcon.
 
 Debugging aids (all off by default): `GRIMROCK_CAPTURE_DIR=<dir>` saves the next
 frame to `<dir>/capture.png` when `<dir>/take` exists
