@@ -110,12 +110,12 @@ void Profiler::endBlock()
 
 // 0x080b3780
 #if GRIMROCK_GAME >= 2
-// 0x0040f2f0
+// The second game reads the collected blocks from Lua; the original inlines both
+// accessors into the bindings (0x0040f2f0 and 0x0040f320).
 int Profiler::getBlockCount()
 {
     return g_blocks.size();
 }
-// 0x0040f320
 void Profiler::getBlockData(int index, const char*& name, int& count, float& time)
 {
     const ProfileBlock& block = g_blocks[index];

@@ -3,6 +3,9 @@
 claims its address: a constant the original uses and ours does not is a threshold, a bias
 or a scale that was read wrong. usage: constcheck2.py [PATH FRAGMENT]
 
+When two functions of a source carry the same address comment (an inlined helper), the
+first one is measured, so the constants of the other are reported as missing.
+
 The pseudocode writes floats both as decimals and as the hex bit pattern, so both forms
 are read; the values that carry no information (0, 1, 0.5, 2, 255) are skipped, and a
 constant our source names (a constexpr anywhere under src/ or src2/) counts as used."""
@@ -11,7 +14,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 want = sys.argv[1] if len(sys.argv) > 1 else None
-BORING = (0.0, 1.0, 0.5, 2.0, 255.0, -1.0, 3.0, 4.0)
+# values that carry no information, plus the artefacts of the pseudocode: 2^32 from an
+# unsigned conversion and 32767 from the Windows RAND_MAX
+BORING = (0.0, 1.0, 0.5, 2.0, 255.0, -1.0, 3.0, 4.0, 4294967296.0, 4294967295.0, 32767.0,
+          3.4028235e+38)  # the last one is FLT_MAX, which our sources name
 
 # constexpr values and tables by name, so a body that names one counts as containing them
 named = {}
@@ -26,6 +32,9 @@ def literal_value(text):
         return None
 
 
+DIVISION = re.compile(r'constexpr\s+[\w:]+\s+(\w+)\s*=\s*([\d.]+)f?\s*([*/])\s*([\d.]+)f?')
+
+
 for directory in ('src', 'src2'):
     for path in (ROOT / directory).rglob('*'):
         if path.suffix not in ('.cpp', '.h'):
@@ -35,6 +44,12 @@ for directory in ('src', 'src2'):
             value = literal_value(literal)
             if value is not None:
                 named.setdefault(name, set()).add(value)
+        # a constant the reconstruction writes as a division or a product (1.0f / 42.0f)
+        for name, left, operator, right in DIVISION.findall(text):
+            a, b = literal_value(left), literal_value(right)
+            if a is None or b is None or (operator == '/' and b == 0):
+                continue
+            named.setdefault(name, set()).add(a / b if operator == '/' else a * b)
         for name, block in ARRAY.findall(text):
             for literal in re.findall(r'-?(?:0x[0-9a-fA-F]+|\d+\.?\d*(?:e[+-]?\d+)?)', block):
                 value = literal_value(literal)
@@ -57,10 +72,12 @@ def floats(text, hex_patterns):
 
 
 def body(lines, start):
+    """the function that follows, signature and initialiser list included"""
     depth, out = 0, []
     for i in range(start, min(start + 600, len(lines))):
         line = lines[i]
         if depth == 0:
+            out.append(line)          # the initialiser list carries constants too
             if line.startswith('{'):
                 depth = 1
             elif line.rstrip().endswith(';'):
@@ -96,7 +113,9 @@ for directory in ('src', 'src2'):
             ours = body(lines, i + 1)
             if not ours:
                 continue
-            theirs = {v for v in floats(native.read_text(), True) if v not in BORING}
+            # the string literals of the pseudocode are not numbers ("1.2.5")
+            pseudocode = re.sub(r'"(?:[^"\\\n]|\\.)*"', '""', native.read_text())
+            theirs = {v for v in floats(pseudocode, True) if v not in BORING}
             if not theirs:
                 continue
             mine = floats(ours, False)
@@ -105,6 +124,8 @@ for directory in ('src', 'src2'):
                 mine |= named.get(name, set())
             missing = [v for v in sorted(theirs)
                        if not any(close(v, x) for x in mine)
+                       and not any(x and close(v, 1.0 / x) for x in mine)
+                       and not any(close(v, 1.0 - x) for x in mine)
                        and not any(close(v, x * 3.1415927 / 180) for x in mine)
                        and not any(close(v * 180 / 3.1415927, x) for x in mine)]
             if missing:

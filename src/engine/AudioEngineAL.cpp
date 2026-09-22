@@ -271,6 +271,17 @@ void SoundSourceAL::play(Sample& sample, bool positional)
     stop();
     m_positional = positional;
     m_sample.reset(&sample);
+#if GRIMROCK_GAME >= 2
+    // 0x004c7a00: a positional source needs a mono sample. OpenAL plays a stereo buffer
+    // without any panning at all, so the original's refusal is the better error.
+    if (positional)
+    {
+        ALint channels = 1;
+        alGetBufferi(((SampleAL&)sample).getBuffer(), AL_CHANNELS, &channels);
+        if (channels > 1)
+            throw Exception("Trying to play non-mono 3D sound: %s", sample.getFilename().c_str());
+    }
+#endif
     alGenSources(1, &m_source);
     if (!alIsSource(m_source))
         throw alError("alGenSources");
