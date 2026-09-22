@@ -41,8 +41,10 @@ VPXPlayerGL::~VPXPlayerGL()
 {
     close();
 #if GRIMROCK_HAVE_VPX
+    // the original throws here; a C++11 destructor is noexcept, so a throw would end the
+    // program instead of reaching a handler
     if (vpx_codec_destroy(&m_codec))
-        throw Exception("Failed to destroy vpx codec");
+        debugPrint("Failed to destroy vpx codec\n");
 #endif
     delete m_pTextureV;
     delete m_pTextureU;
@@ -193,7 +195,7 @@ void VPXPlayerGL::update()
 {
     if (!m_pFile || !m_pTextureY)
         return;
-    int frame = (int)lrintf(m_timer.get() * m_frameRate) + 1;
+    int frame = (int)(m_timer.get() * m_frameRate) + 1;
     if (frame > m_frame)
     {
         decodeFrames(frame - m_frame);

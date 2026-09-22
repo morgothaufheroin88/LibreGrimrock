@@ -266,8 +266,8 @@ void Image::fillRect(int x, int y, int width, int height, const Color& color)
 // 0x00499ac0
 Vec4 Image::sampleNearestClamp(float x, float y) const
 {
-    int ix = (int)lrintf(floorf(x + 0.5f));
-    int iy = (int)lrintf(floorf(y + 0.5f));
+    int ix = (int)(floorf(x + 0.5f));
+    int iy = (int)(floorf(y + 0.5f));
     ix = ix < 0 ? 0 : (ix > m_width - 1 ? m_width - 1 : ix);
     iy = iy < 0 ? 0 : (iy > m_height - 1 ? m_height - 1 : iy);
     Color c = getPixel(ix, iy);
@@ -322,9 +322,10 @@ void Image::resample(int width, int height)
 // 0x00499ff0
 void Image::blur(int kernel)
 {
-    static constexpr float gaussian[9] = {0.0625f, 0.125f, 0.0625f, 0.125f, 0.25f,
-                                          0.125f,  0.0625f, 0.125f, 0.0625f};
-    static constexpr float gentle[9] = {0.01f, 0.08f, 0.01f, 0.08f, 0.64f, 0.08f, 0.01f, 0.08f, 0.01f};
+    static constexpr float gaussian[9] = {0.0625f, 0.125f,  0.0625f, 0.125f, 0.25f,
+                                          0.125f,  0.0625f, 0.125f,  0.0625f};
+    static constexpr float gentle[9] = {0.01f, 0.08f, 0.01f, 0.08f, 0.64f,
+                                        0.08f, 0.01f, 0.08f, 0.01f};
     const float* weights = kernel == 1 ? gaussian : gentle;
     unsigned char* data = new unsigned char[(size_t)m_width * m_height * 4];
     unsigned char* out = data;

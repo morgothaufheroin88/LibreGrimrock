@@ -844,8 +844,8 @@ void flushDebugDraw(const Matrix4x4& viewProj, Font* font)
             float invW = 1.0f / w;
             float clipX = (m[0] * pos.x + m[4] * pos.y + m[8] * pos.z + m[12]) * invW;
             float clipY = (m[1] * pos.x + m[5] * pos.y + m[9] * pos.z + m[13]) * invW;
-            Vec2 screenPos((float)lrintf(width * (clipX * 0.5f + 0.5f)),
-                           (float)lrintf(height * (clipY * -0.5f + 0.5f)));
+            Vec2 screenPos((float)(int)(width * (clipX * 0.5f + 0.5f)),
+                           (float)(int)(height * (clipY * -0.5f + 0.5f)));
             drawText(entry.text.c_str(), screenPos, font, entry.color, INT_MAX);
         }
     }

@@ -568,10 +568,10 @@ Color checkColor(lua_State* L, int index)
     if (lua_type(L, index) != LUA_TTABLE)
         luaL_typerror(L, index, "color");
     Color color;
-    color.r = (unsigned char)(short)lrintf(tableNumber(L, index, 1));
-    color.g = (unsigned char)(short)lrintf(tableNumber(L, index, 2));
-    color.b = (unsigned char)(short)lrintf(tableNumber(L, index, 3));
-    color.a = (unsigned char)(short)lrintf(tableNumber(L, index, 4));
+    color.r = (unsigned char)(short)(tableNumber(L, index, 1));
+    color.g = (unsigned char)(short)(tableNumber(L, index, 2));
+    color.b = (unsigned char)(short)(tableNumber(L, index, 3));
+    color.a = (unsigned char)(short)(tableNumber(L, index, 4));
     return color;
 }
 // 0x081582b0: {x=vec, y=vec, z=vec}

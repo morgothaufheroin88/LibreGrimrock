@@ -67,7 +67,7 @@ Image* renderGlyphWithStroke(FT_Library& library, unsigned int glyphIndex, FT_Fa
         return 0;
     FT_BBox box;
     FT_Outline_Get_CBox(&face->glyph->outline, &box);
-    int border = (int)lrintf(ceilf(strokeWidth));
+    int border = (int)(ceilf(strokeWidth));
     // round the 26.6 fixed point box outwards to whole pixels and grow it by the border
     box.xMin = (box.xMin & ~(FtUnitsPerPixel - 1)) - border * FtUnitsPerPixel;
     box.yMin = (box.yMin & ~(FtUnitsPerPixel - 1)) - border * FtUnitsPerPixel;
@@ -84,7 +84,7 @@ Image* renderGlyphWithStroke(FT_Library& library, unsigned int glyphIndex, FT_Fa
     Array<Span> outline;
     FT_Stroker stroker;
     FT_Stroker_New(library, &stroker);
-    FT_Stroker_Set(stroker, (int)lrintf(strokeWidth * FtUnitsPerPixel), FT_STROKER_LINECAP_ROUND,
+    FT_Stroker_Set(stroker, (int)(strokeWidth * FtUnitsPerPixel), FT_STROKER_LINECAP_ROUND,
                    FT_STROKER_LINEJOIN_ROUND, 0);
     FT_Glyph glyph;
     if (FT_Get_Glyph(face->glyph, &glyph) != 0)
@@ -125,12 +125,12 @@ Image* renderGlyphWithStroke(FT_Library& library, unsigned int glyphIndex, FT_Fa
             int px = span.x + x, py = height - 1 - span.y;
             Color pixel = image->getPixelSafe(px, py);
             int coverage = span.coverage;
-            pixel.r = (unsigned char)lrintf(pixel.r +
-                                            (float)((fillColor.r - pixel.r) * coverage) / 255.0f);
-            pixel.g = (unsigned char)lrintf((float)((fillColor.g - pixel.g) * coverage) / 255.0f +
-                                            pixel.g);
-            pixel.b = (unsigned char)lrintf(pixel.b +
-                                            (float)((fillColor.b - pixel.b) * coverage) / 255.0f);
+            pixel.r = (unsigned char)(int)(pixel.r +
+                                           (float)((fillColor.r - pixel.r) * coverage) / 255.0f);
+            pixel.g = (unsigned char)(int)((float)((fillColor.g - pixel.g) * coverage) / 255.0f +
+                                           pixel.g);
+            pixel.b = (unsigned char)(int)(pixel.b +
+                                           (float)((fillColor.b - pixel.b) * coverage) / 255.0f);
             pixel.a = (unsigned char)(coverage + pixel.a < 256 ? coverage + pixel.a : 255);
             image->setPixelSafe(px, py, pixel);
         }

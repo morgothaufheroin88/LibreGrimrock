@@ -261,7 +261,7 @@ void ParticleState::emitParticles(float dt)
         float emissionTime = emitter->m_emissionTime > 0.0f ? emitter->m_emissionTime : FLT_MAX;
         if (m_time < emissionTime)
             emissionTime = m_time;
-        target = (int)lrintf(emissionTime * emitter->m_emissionRate);
+        target = (int)(emissionTime * emitter->m_emissionRate);
     }
     int count = target - m_numEmitted;
     if (count < 1)

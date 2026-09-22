@@ -182,19 +182,19 @@ class NativeSaveGameOutputStream
             if (v < 256.0)
             {
                 m_pStream->writeByte((unsigned char)Tag_Byte);
-                m_pStream->writeByte((unsigned char)lrint(v));
+                m_pStream->writeByte((unsigned char)(int)(v));
                 return;
             }
             if (v < 65536.0)
             {
                 m_pStream->writeByte((unsigned char)Tag_Short);
-                m_pStream->writeShort((unsigned short)lrint(v));
+                m_pStream->writeShort((unsigned short)(int)(v));
                 return;
             }
             if (v < 4294967296.0)
             {
                 m_pStream->writeByte((unsigned char)Tag_Int);
-                m_pStream->writeInt((unsigned int)(long long)llrint(v));
+                m_pStream->writeInt((unsigned int)(long long)(v));
                 return;
             }
         }

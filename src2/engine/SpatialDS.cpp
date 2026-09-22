@@ -150,8 +150,8 @@ void QuadTreeSpatialDS::addEntity(RenderEntity& entity)
         }
     }
     int maxIndex = (1 << level) - 1;
-    int cx = (int)lrintf(((b.min.x + b.max.x) * 0.5f + m_size * 0.5f) / cell);
-    int cz = (int)lrintf(((b.min.z + b.max.z) * 0.5f + m_size * 0.5f) / cell);
+    int cx = (int)(((b.min.x + b.max.x) * 0.5f + m_size * 0.5f) / cell);
+    int cz = (int)(((b.min.z + b.max.z) * 0.5f + m_size * 0.5f) / cell);
     cx = cx < 0 ? 0 : (cx > maxIndex ? maxIndex : cx);
     cz = cz < 0 ? 0 : (cz > maxIndex ? maxIndex : cz);
     int nodeIndex = (int)MortonNumber(cx, cz) + m_levelStart[level];

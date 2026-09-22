@@ -44,7 +44,7 @@ void HeightmapBuilder::tessellateTile(int x, int y, int elevation, int subdivisi
             {
                 Vec4 sample = blendMap->sampleLinearClamp((float)(blendSize - 1) * u,
                                                           (float)(blendSize - 1) * v);
-                unsigned int gray = (unsigned int)lrintf(sample.x) & 0xff;
+                unsigned int gray = (unsigned int)(int)(sample.x) & 0xff;
                 color = 0xff000000 | (gray << 16) | (gray << 8) | gray;
             }
             m_colors.push_back(color);

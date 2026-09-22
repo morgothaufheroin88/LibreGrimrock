@@ -511,7 +511,7 @@ void RenderableMeshGL::init(Mesh& mesh, bool keepSourceData)
                 if (c < boneComponents)
                 {
                     bi[c] = (unsigned char)boneIdx[i * boneComponents + c];
-                    int w = (int)lrintf(boneW[i * boneComponents + c] * 255.0f);
+                    int w = (int)(boneW[i * boneComponents + c] * 255.0f);
                     bw[c] = (unsigned char)w;
                     sum += w & 0xff;
                 }
@@ -666,10 +666,10 @@ CommonResourcesGL::CommonResourcesGL()
         {
             float angle = (float)g_rotTex[i] * PI * 2.0f / 255.0f;
             float cosA = std::cos(angle), sinA = std::sin(angle);
-            unsigned char cosByte = (unsigned char)lrintf((cosA * 0.5f + 0.5f) * 255.0f);
+            unsigned char cosByte = (unsigned char)(int)((cosA * 0.5f + 0.5f) * 255.0f);
             rot.setPixel(i % RotTexSize, i / RotTexSize,
-                         Color(cosByte, (unsigned char)lrintf((-sinA * 0.5f + 0.5f) * 255.0f),
-                               (unsigned char)lrintf((sinA * 0.5f + 0.5f) * 255.0f), cosByte));
+                         Color(cosByte, (unsigned char)(int)((-sinA * 0.5f + 0.5f) * 255.0f),
+                               (unsigned char)(int)((sinA * 0.5f + 0.5f) * 255.0f), cosByte));
         }
         SharedPtr<RenderableTextureGL> rotTexture(new RenderableTextureGL);
         rotTexture->init(rot);

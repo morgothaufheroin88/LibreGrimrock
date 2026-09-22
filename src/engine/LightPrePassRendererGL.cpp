@@ -502,7 +502,7 @@ int LightPrePassRendererGL::setupPointLightScissorRect(const Camera& camera, con
             float pz2 = (denom - radiusSqr) / (negLightZ - (nz2 / nx2) * lightPos.x);
             if (pz1 < 0.0f)
             {
-                int x = (int)lrintf(viewportWidth * ((nz1 * xScale) / nx1 + 1.0f) * 0.5f);
+                int x = (int)(viewportWidth * ((nz1 * xScale) / nx1 + 1.0f) * 0.5f);
                 if (lightPos.x <= -pz1 * nz1 / nx1)
                 {
                     if (x < xmax)
@@ -515,7 +515,7 @@ int LightPrePassRendererGL::setupPointLightScissorRect(const Camera& camera, con
             }
             if (pz2 < 0.0f)
             {
-                int x = (int)lrintf(viewportWidth * ((nz2 * xScale) / nx2 + 1.0f) * 0.5f);
+                int x = (int)(viewportWidth * ((nz2 * xScale) / nx2 + 1.0f) * 0.5f);
                 if (lightPos.x <= -pz2 * nz2 / nx2)
                 {
                     if (x < xmax)
@@ -543,7 +543,7 @@ int LightPrePassRendererGL::setupPointLightScissorRect(const Camera& camera, con
             float pz2 = (denom - radiusSqr) / (negLightZ - (nz2 / ny2) * lightPos.y);
             if (pz1 < 0.0f)
             {
-                int y = (int)lrintf(viewportHeight * ((yScale * nz1) / ny1 + 1.0f) * 0.5f);
+                int y = (int)(viewportHeight * ((yScale * nz1) / ny1 + 1.0f) * 0.5f);
                 if (lightPos.y <= -pz1 * nz1 / ny1)
                 {
                     if (y < ymax)
@@ -556,7 +556,7 @@ int LightPrePassRendererGL::setupPointLightScissorRect(const Camera& camera, con
             }
             if (pz2 < 0.0f)
             {
-                int y = (int)lrintf(viewportHeight * ((yScale * nz2) / ny2 + 1.0f) * 0.5f);
+                int y = (int)(viewportHeight * ((yScale * nz2) / ny2 + 1.0f) * 0.5f);
                 if (lightPos.y <= -pz2 * nz2 / ny2)
                 {
                     if (y < ymax)

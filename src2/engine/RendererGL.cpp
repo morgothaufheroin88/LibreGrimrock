@@ -882,10 +882,10 @@ CommonResourcesGL::CommonResourcesGL()
         {
             float angle = (float)g_rotTex[i] * PI * 2.0f / 255.0f;
             float cosA = std::cos(angle), sinA = std::sin(angle);
-            unsigned char cosByte = (unsigned char)lrintf((cosA * 0.5f + 0.5f) * 255.0f);
+            unsigned char cosByte = (unsigned char)(int)((cosA * 0.5f + 0.5f) * 255.0f);
             rot.setPixel(i % RotTexSize, i / RotTexSize,
-                         Color(cosByte, (unsigned char)lrintf((-sinA * 0.5f + 0.5f) * 255.0f),
-                               (unsigned char)lrintf((sinA * 0.5f + 0.5f) * 255.0f), cosByte));
+                         Color(cosByte, (unsigned char)(int)((-sinA * 0.5f + 0.5f) * 255.0f),
+                               (unsigned char)(int)((sinA * 0.5f + 0.5f) * 255.0f), cosByte));
         }
         SharedPtr<RenderableTextureGL> t(new RenderableTextureGL);
         t->init(rot);

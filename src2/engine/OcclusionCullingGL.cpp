@@ -67,8 +67,8 @@ void OcclusionCullingGL::rasterizeTriangle(const Vec3* v)
     int x[3], y[3];
     for (int i = 0; i < 3; ++i)
     {
-        x[i] = (int)lrintf(v[i].x);
-        y[i] = (int)lrintf(v[i].y);
+        x[i] = (int)(v[i].x);
+        y[i] = (int)(v[i].y);
     }
     int area = (x[1] - x[0]) * (y[2] - y[0]) - (x[2] - x[0]) * (y[1] - y[0]);
     if (area <= 0)

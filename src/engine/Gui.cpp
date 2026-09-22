@@ -84,12 +84,12 @@ void drawGroup(int x, int y, int width, int height)
 void drawVerticalScrollBar(int x, int y, int height, float start, float end, bool active)
 {
     float trackHeight = (float)(height - ScrollBarArrowHeight * 2);
-    float snapped = (float)lrintf(start * trackHeight) / trackHeight;
+    float snapped = (float)(int)(start * trackHeight) / trackHeight;
     im::fillRect(x, y, ScrollBarWidth, height, scrollBarBackgroundColor);
     float top = (float)(y + ScrollBarArrowHeight);
     float range = (float)(y + height - ScrollBarArrowHeight) - top;
-    int y0 = (int)lrintf(snapped * range + top);
-    int y1 = (int)lrintf((end - start + snapped) * range + top);
+    int y0 = (int)(snapped * range + top);
+    int y1 = (int)((end - start + snapped) * range + top);
     im::fillRoundedRectAA(x + 5, y0, 7, y1 - y0, 3.0f,
                           active ? activeScrollBarColor : scrollBarColor);
     float cx = (float)x + 8.5f;
@@ -105,7 +105,7 @@ void drawVerticalScrollBar(int x, int y, int height, float start, float end, boo
 void drawSlider(int x, int y, int width, float value, bool active)
 {
     im::fillRect(x, y + 4, width, 5, backgroundColor);
-    int kx = (int)lrintf((float)width * value) + x;
+    int kx = (int)((float)width * value) + x;
     Color knob = active ? activeSliderKnobColor : sliderKnobColor;
     Vec2 upper[3] = {Vec2((float)(kx - 4), (float)y), Vec2((float)(kx + 4), (float)y),
                      Vec2((float)kx, (float)(y + 4))};
