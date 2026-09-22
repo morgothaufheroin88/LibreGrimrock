@@ -271,8 +271,12 @@ static int commonMatrixIndex(const Matrix4x3& m)
     }
     return -1;
 }
+// the class tables of vec, mat, Sphere, Box, Plane and Ray are the metatables of their
+// values; index is made absolute because the lookup pushes onto the stack
 static bool hasMetatable(lua_State* L, int index, const char* name)
 {
+    if (index < 0)
+        index = lua_gettop(L) + 1 + index;
     lua_getfield(L, LUA_GLOBALSINDEX, name);
     bool same = lua_rawequal(L, -1, index) == 1;
     lua_pop(L, 1);

@@ -510,7 +510,8 @@ Vec2 checkVector2(lua_State* L, int index)
 Vec3 checkVector3(lua_State* L, int index)
 {
 #if GRIMROCK_GAME >= 2
-    if (lua_isnumber(L, index))
+    // only for the arguments of a binding, where the following stack slots hold the rest
+    if (index > 0 && lua_isnumber(L, index))
         return Vec3((float)luaL_checknumber(L, index), (float)luaL_checknumber(L, index + 1),
                     (float)luaL_checknumber(L, index + 2));
 #endif
@@ -518,10 +519,11 @@ Vec3 checkVector3(lua_State* L, int index)
         luaL_typerror(L, index, "vec");
     return Vec3(tableNumber(L, index, 1), tableNumber(L, index, 2), tableNumber(L, index, 3));
 }
-// 0x08155eb0
+// 0x08155eb0: the loose form reads the following stack slots, so it is only valid for
+// the arguments of a binding
 Vec3 checkVector3_alt(lua_State* L, int index)
 {
-    if (!lua_isnumber(L, index))
+    if (index <= 0 || !lua_isnumber(L, index))
         return checkVector3(L, index);
     float x = (float)luaL_checknumber(L, index);
     float y = (float)luaL_checknumber(L, index + 1);
@@ -540,7 +542,7 @@ Vec4 checkVector4(lua_State* L, int index)
 // 0x00411150
 Vec4 checkVector4_alt(lua_State* L, int index)
 {
-    if (!lua_isnumber(L, index))
+    if (index <= 0 || !lua_isnumber(L, index))
         return checkVector4(L, index);
     float x = (float)luaL_checknumber(L, index);
     float y = (float)luaL_checknumber(L, index + 1);

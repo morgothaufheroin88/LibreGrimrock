@@ -785,12 +785,11 @@ void LightPrePassRendererGL::renderLightPass(const Camera& camera, const RenderV
                 if (camera.getFar() < farZ)
                     farZ = camera.getFar();
                 float splits[NumCascades + 1];
-                splits[0] = 0.0f;
-                for (int c = 0; c < NumCascades; ++c)
+                for (int c = 0; c <= NumCascades; ++c)
                 {
-                    float p = (float)(c + 1) * 0.25f;
-                    splits[c + 1] = CascadeSplitWeight * (nearZ + (farZ - nearZ) * p) +
-                                    (1.0f - CascadeSplitWeight) * nearZ * powf(farZ / nearZ, p);
+                    float p = (float)c * 0.25f;
+                    splits[c] = CascadeSplitWeight * (nearZ + (farZ - nearZ) * p) +
+                                (1.0f - CascadeSplitWeight) * nearZ * powf(farZ / nearZ, p);
                 }
                 for (int c = 0; c < NumCascades; ++c)
                 {
@@ -975,7 +974,15 @@ void LightPrePassRendererGL::renderDirectionalLight(const Camera& camera, const 
         float fadeStart = farZ * ShadowFadeStart;
         glUniform2f(glGetUniformLocation(program, "g_shadowFade"), 1.0f / (farZ - fadeStart),
                     -fadeStart / (farZ - fadeStart));
-        float startDepth = cascade > 0 ? projectedDepth(camera, cascadeStart) : 0.0f;
+        // the vertex shader writes it into gl_Position, so the projected depth goes
+        // through the D3D to GL depth range conversion
+        float startDepth = 0.0f;
+        if (cascade > 0)
+        {
+            Vec4 clip = RenderContextGL::sm_d3dToGLProj.transform(
+                Vec4(0.0f, 0.0f, projectedDepth(camera, cascadeStart), 1.0f));
+            startDepth = clip.z / clip.w;
+        }
         glUniform1f(glGetUniformLocation(program, "g_cascadeStartZ"), startDepth);
     }
     else
@@ -1571,13 +1578,15 @@ void LightPrePassRendererGL::renderDirectionalLightShadowMap(
     float cascadeStart, float cascadeEnd, Matrix4x4& shadowViewProj)
 {
     ProfileScope profile("_RenderDirectionalLightShadowMap");
-    // radius of the sphere enclosing the slice: the far corner of the slice
+    // radius of the sphere around the camera that encloses the slice: the corner of the
+    // near plane (z = 0 in the projection of the original) scaled out to the far end of
+    // the slice
     const Matrix4x4& invProj = camera.getInverseProjectionMatrix();
-    Vec4 corner = invProj.transform(Vec4(1.0f, 1.0f, 1.0f, 1.0f));
-    float scale = cascadeEnd / camera.getNear() / corner.w;
-    Vec3 farCorner(corner.x * scale, corner.y * scale, cascadeEnd);
+    Vec4 corner = invProj.transform(Vec4(1.0f, 1.0f, 0.0f, 1.0f));
+    float scale = cascadeEnd / (camera.getNear() * corner.w);
+    Vec3 farCorner(corner.x * scale, corner.y * scale, corner.z * scale);
     float radius = farCorner.length();
-    Vec3 center = camera.getLocalToWorldMatrix().transformPoint(Vec3(0.0f, 0.0f, cascadeEnd));
+    Vec3 center = camera.getLocalToWorldMatrix().pos;
     // light space bounds of the sphere, extended towards the light
     const Matrix4x3& worldToLight = light.getNode()->getWorldToLocalMatrix();
     Vec3 lightCenter = worldToLight.transformPoint(center);

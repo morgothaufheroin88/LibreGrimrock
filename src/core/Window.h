@@ -65,6 +65,9 @@ class Window
         m_pEventHandler = handler;
     }
     void setMouseMotionMode(int mode);
+    // 0x0049b160 / 0x0815aee0 (ShowCursor): the cursor is hidden while a cinematic plays
+    // and while the mouse look holds it
+    void showCursor(bool show);
     int getMouseMotionMode() const
     {
         return m_mouseMotionMode;

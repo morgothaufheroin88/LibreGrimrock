@@ -344,6 +344,14 @@ bool Window::processMessages()
     return true;
 }
 
+// 0x0049b160
+void Window::showCursor(bool show)
+{
+    if (show)
+        SDL_ShowCursor();
+    else
+        SDL_HideCursor();
+}
 // 0x080cd710
 void Window::setMouseMotionMode(int mode)
 {

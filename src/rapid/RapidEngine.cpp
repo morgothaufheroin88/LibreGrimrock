@@ -246,6 +246,27 @@ void RapidEngine::enterMainLoop()
             }
             callDisplayFunc(L, traceback);
             ++g_frameCounter;
+            // Debugging aid: GRIMROCK_DEBUG_LUA runs a chunk from the given frame on
+            // (GRIMROCK_DEBUG_LUA_FRAME, 600 by default) until it returns a true value,
+            // which is how the save/load paths are exercised without clicking through the
+            // menus: the chunk waits for the state it needs and then reports it is done.
+            static const char* debugLua = getenv("GRIMROCK_DEBUG_LUA");
+            static const int debugLuaFrame =
+                getenv("GRIMROCK_DEBUG_LUA_FRAME") ? atoi(getenv("GRIMROCK_DEBUG_LUA_FRAME")) : 600;
+            static bool debugLuaDone = false;
+            if (debugLua && !debugLuaDone && g_frameCounter >= (unsigned long)debugLuaFrame)
+            {
+                if (g_frameCounter == (unsigned long)debugLuaFrame)
+                    debugPrint("GRIMROCK_DEBUG_LUA: %s\n", debugLua);
+                if (luaL_loadstring(L, debugLua) != 0 || lua_pcall(L, 0, 1, traceback) != 0)
+                {
+                    debugPrint("GRIMROCK_DEBUG_LUA failed: %s\n", lua_tostring(L, -1));
+                    debugLuaDone = true;
+                }
+                else
+                    debugLuaDone = lua_toboolean(L, -1) != 0;
+                lua_pop(L, 1);
+            }
             if (g_stallThresholdMs)
             {
                 static double nextReport = 0.0;

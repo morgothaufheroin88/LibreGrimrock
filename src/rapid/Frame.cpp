@@ -386,11 +386,14 @@ static int Frame_setCursor(lua_State* L)
     frame->getWindow()->setCursor(luax::checkObject<Cursor>(L, 2));
     return 0;
 }
-// 0x0815aee0 / 0x0815aef0: no-ops on Linux
+// 0x0815aee0 / 0x004089c0
 static int Frame_showCursor(lua_State* L)
 {
+    Frame* frame = checkFrame(L, 1);
+    frame->getWindow()->showCursor(luax::checkBool(L, 2));
     return 0;
 }
+// 0x0815aef0: no-op on Linux
 static int Frame_hide(lua_State* L)
 {
     return 0;
