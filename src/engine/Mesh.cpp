@@ -168,7 +168,13 @@ void Mesh::computeVertexNormals()
         for (int k = 0; k < seg.numTriangles; ++k, idx += step)
         {
             int a = idx[0], b = idx[1], c = idx[2];
+#if GRIMROCK_GAME >= 2
+            // 0x004acb70 accumulates (b - a) x (c - a), the opposite winding of the
+            // first game (the heightmap meshes are built for it)
+            Vec3 faceNormal = cross(positions[b] - positions[a], positions[c] - positions[a]);
+#else
             Vec3 faceNormal = cross(positions[c] - positions[a], positions[b] - positions[a]);
+#endif
             faceNormal = faceNormal * (1.0f / std::sqrt(dot(faceNormal, faceNormal)));
             normals[a] += faceNormal;
             normals[b] += faceNormal;

@@ -41,6 +41,11 @@ int main(int argc, char** argv)
         archive.setEncryptionKey(g_archiveKey, sizeof(g_archiveKey));
         core::mount(archive, 0);
         RapidEngine* engine = new RapidEngine;
+#if GRIMROCK_GAME >= 2
+        // the switches of the command line reach Lua through sys.args (0x00401110)
+        for (int i = 1; i < argc; ++i)
+            engine->getArgList().push_back(core::String(argv[i]));
+#endif
 #if GRIMROCK_GAME == 2
         // grimrock2.exe takes its icon from the executable's resources (LoadIcon 0x65);
         // tools/log2/icon.py writes it out as grimrock2.png

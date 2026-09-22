@@ -433,7 +433,6 @@ void LightPrePassRendererGL::renderGeometryPass(const Camera& camera, const Rend
         }
     }
     std::sort(items.begin(), items.end());
-
     ShaderProgramGL* currentProgram = 0;
     const Material* currentMaterial = 0;
     for (int i = 0; i < items.size(); ++i)
