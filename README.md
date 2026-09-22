@@ -26,8 +26,8 @@ dungeon editor and the Steam integration (achievements, cloud saves, workshop)
 have been exercised with the reconstructed executable.
 
 - `src/core` — the core library: strings, containers, math, streams, the GRA2
-  and ZIP file systems, images, SDL2 window and input, dialogs, threads, debug
-  drawing.
+  and ZIP file systems, images, the SDL3 window and input, dialogs, threads,
+  debug drawing.
 - `src/engine` — the engine: light pre-pass GL renderer with shadows, SSAO,
   FXAA and particles, the notebook (low quality) renderer, immediate mode
   drawing and fonts, mesh/model/animation formats, asset pipeline, the null
@@ -35,6 +35,11 @@ have been exercised with the reconstructed executable.
 - `src/rapid` — the Lua layer: the `luax` object model, the `sys`, core,
   frame, engine (42 classes, 537 bindings) and Steam modules, the `RapidEngine`
   main loop and `main`.
+- `src2` — what the second game changes or adds, file by file (see *Legend of
+  Grimrock 2* below).
+- `src/launcher` — the one executable of both games: it finds the installed
+  games, shows a window to pick one when that is not clear, and loads the
+  engine of the chosen game.
 - `tests` — unit tests of the core library.
 - `tools` — the deployment and dependency scripts, the archive tool and the
   reverse engineering helpers described below.
