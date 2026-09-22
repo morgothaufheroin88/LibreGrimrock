@@ -12,12 +12,17 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 mkdir -p "$ROOT/third_party"
 
 LUAJIT_REV=87d74a8f3d8f5a53fc7ad1fd45adcc06db4bcde8   # RELEASE LuaJIT-2.0.0-rc3
-if [ ! -f "$ROOT/third_party/luajit/src/libluajit.a" ]; then
+# The static library goes into the engine modules (libgrimrock1.so, libgrimrock2.so), so it
+# is built position independent; .pic marks a library built that way (an older build is
+# redone).
+if [ ! -f "$ROOT/third_party/luajit/src/libluajit.a" ] || [ ! -f "$ROOT/third_party/luajit/src/.pic" ]; then
     if [ ! -d "$ROOT/third_party/luajit" ]; then
         git clone --branch v2.0 https://github.com/LuaJIT/LuaJIT.git "$ROOT/third_party/luajit"
     fi
     git -C "$ROOT/third_party/luajit" checkout --quiet "$LUAJIT_REV"
-    make -C "$ROOT/third_party/luajit" -j"$(nproc)" BUILDMODE=static
+    make -C "$ROOT/third_party/luajit" clean >/dev/null
+    make -C "$ROOT/third_party/luajit" -j"$(nproc)" BUILDMODE=static CFLAGS=-fPIC
+    touch "$ROOT/third_party/luajit/src/.pic"
 fi
 
 if [ -n "$1" ]; then

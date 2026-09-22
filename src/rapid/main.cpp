@@ -32,7 +32,10 @@ static void changeToExeDir()
         fprintf(stderr, "chdir(%s) failed\n", base);
 }
 
-int main(int argc, char** argv)
+// The main() of the original. The engine of each game is a module of the one
+// executable (src/launcher/main.cpp), which picks the game and calls this entry point with
+// the command line; the launcher's own switches are already taken out.
+extern "C" __attribute__((visibility("default"))) int grimrock_game_main(int argc, char** argv)
 {
     changeToExeDir();
     try

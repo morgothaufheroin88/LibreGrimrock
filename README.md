@@ -60,7 +60,8 @@ Two third-party pieces are not redistributed here and are fetched by a script:
 
 - **LuaJIT 2.0.0-rc3**, the revision linked into the original binary. Its
   bytecode loader reads the precompiled scripts inside `grimrock.dat` (LuaJIT
-  2.1 cannot).
+  2.1 cannot). It is built as a position independent static library, because
+  it is linked into the engine modules.
 - **Steamworks SDK** (optional). Valve's SDK licence does not allow
   redistribution; download `steamworks_sdk.zip` from
   <https://partner.steamgames.com/downloads/steamworks_sdk.zip> (a free
@@ -76,8 +77,19 @@ ctest --test-dir build-release
 
 ## Running
 
-The executable expects `grimrock.dat` and `grimrock.png` next to itself and
-changes to its own directory at start (like the original); symlinks are fine:
+Both games run from one executable, `grimrock`. Each game's engine is a module
+next to it (`libgrimrock1.so`, `libgrimrock2.so`, the reconstructions of the two
+original executables, whose only entry point is the original `main`); the
+executable picks the game and loads that module. The game is, in this order:
+
+- `--game 1` or `--game 2` on the command line (not passed on to the game);
+- the name it was started as: `grimrock2` (the build creates that symlink) runs
+  the second game;
+- the data next to the executable: `grimrock.dat` or `grimrock2.dat`, the first
+  game when both are there.
+
+The game changes to the executable's directory at start (like the original) and
+expects its data there; symlinks are fine:
 
 ```sh
 cd build-release
@@ -100,18 +112,19 @@ extract-all DIR | verify` inspects the game archive.
 
 ## Legend of Grimrock 2
 
-The second game shares this engine, and the same tree builds it: `grimrock2` is
-configured with `GRIMROCK_GAME=2` and links the same core, engine and rapid
-libraries. It is reconstructed from `grimrock2.exe` (2.2.4, a 32-bit MSVC
+The second game shares this engine, and the same tree builds it: its engine
+module `libgrimrock2.so` is compiled with `GRIMROCK_GAME=2` from the same core,
+engine and rapid sources plus the `src2` overlay, and runs from the same
+`grimrock` executable as the first game. It is reconstructed from `grimrock2.exe` (2.2.4, a 32-bit MSVC
 binary with the Direct3D 9, OpenGL, XAudio2 and libvpx back ends; only the GL
 and the OpenAL paths are reconstructed, as in the Linux build of the first
 game).
 
 ```sh
-cmake --build build-release --target grimrock2
+cmake --build build-release --target grimrock
 cd build-release
 ln -s "$HOME/.local/share/Steam/steamapps/common/Legend of Grimrock 2/grimrock2.dat" .
-./grimrock2
+./grimrock2            # or ./grimrock --game 2
 ```
 
 `grimrock2.dat` is a GRA2 archive like the first one but with hashed names, so
@@ -146,8 +159,9 @@ how the save and load paths are exercised without clicking through the menus.
 result over the Steam installation (default
 `~/.local/share/Steam/steamapps/common/Legend of Grimrock`):
 
-- the stripped executable replaces `Grimrock.bin.x86` (the original is kept as
-  `Grimrock.bin.x86.orig`);
+- the stripped launcher replaces `Grimrock.bin.x86` (the original is kept as
+  `Grimrock.bin.x86.orig`) and the engine module `libgrimrock1.so` goes next
+  to it;
 - `libsteam_api.so` (64-bit, from the SDK) is placed next to it;
 - `lib64/` receives the host libraries that the Steam Linux Runtime container
   does not provide (`libminizip`, `libGLEW`, `libSDL3`); the executable's
@@ -159,8 +173,9 @@ achievements, cloud saves and workshop working. Steam's *Verify integrity of
 game files* restores the original binary; run the script again afterwards.
 
 `tools/deploy_steam2.sh [game dir]` does the same for the second game. It has
-no Linux depot, so the Windows executable is left alone and `grimrock2` is
-added next to it, together with the icon taken out of `grimrock2.exe`.
+no Linux depot, so the Windows executable is left alone and the launcher is
+added next to it as `grimrock2`, with `libgrimrock2.so` and the icon taken out
+of `grimrock2.exe`.
 
 ## Compatibility changes
 

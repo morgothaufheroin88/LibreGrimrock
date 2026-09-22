@@ -6,6 +6,9 @@ project(grimrock_reconstruction LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# the engines are shared modules of the launcher (see below), so everything linked into
+# them is position independent
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 find_package(ZLIB REQUIRED)
 find_package(SDL3 REQUIRED CONFIG)
@@ -71,9 +74,14 @@ function(game_sources OUT SHARED SUBDIR)
     set(${OUT} ${RESULT} ${OVERRIDES} PARENT_SCOPE)
 endfunction()
 
-# add_game(<game number> <executable> <core lib> <engine lib> <core sources> <engine sources> <rapid sources> <include dirs>)
-function(add_game GAME EXE CORE ENGINE CORE_SRC ENGINE_SRC RAPID_SRC INCLUDES)
-    add_library(${CORE} ${CORE_SRC})
+# The two games are one executable: grimrock (src/launcher) picks the game and loads its
+# engine, a shared module next to it (libgrimrock1.so, libgrimrock2.so) whose only entry
+# point is grimrock_game_main, the main() of the original. Each engine is built from its
+# own core and engine libraries, compiled with its GRIMROCK_GAME.
+#
+# add_game(<game number> <module> <core lib> <engine lib> <core sources> <engine sources> <rapid sources> <include dirs>)
+function(add_game GAME MODULE CORE ENGINE CORE_SRC ENGINE_SRC RAPID_SRC INCLUDES)
+    add_library(${CORE} STATIC ${CORE_SRC})
     target_include_directories(${CORE} PUBLIC ${INCLUDES})
     # stb_image / stb_image_write (public domain, vendored)
     target_include_directories(${CORE} SYSTEM PRIVATE third_party)
@@ -81,7 +89,7 @@ function(add_game GAME EXE CORE ENGINE CORE_SRC ENGINE_SRC RAPID_SRC INCLUDES)
     target_compile_options(${CORE} PRIVATE -Wall -Wextra -Wno-unused-parameter)
     target_link_libraries(${CORE} PUBLIC ZLIB::ZLIB SDL3::SDL3 PkgConfig::MINIZIP Threads::Threads)
 
-    add_library(${ENGINE} ${ENGINE_SRC})
+    add_library(${ENGINE} STATIC ${ENGINE_SRC})
     target_link_libraries(${ENGINE} PUBLIC ${CORE} OpenGL::GL PkgConfig::GLEW
                           PkgConfig::FREETYPE PkgConfig::OPENAL PkgConfig::VORBISFILE)
     target_compile_options(${ENGINE} PRIVATE -Wall -Wextra -Wno-unused-parameter)
@@ -91,37 +99,54 @@ function(add_game GAME EXE CORE ENGINE CORE_SRC ENGINE_SRC RAPID_SRC INCLUDES)
     endif()
 
     if(LUAJIT_INCLUDE_DIR AND LUAJIT_LIBRARY)
-        add_executable(${EXE} ${RAPID_SRC})
-        target_include_directories(${EXE} PRIVATE ${LUAJIT_INCLUDE_DIR})
+        add_library(${MODULE} SHARED ${RAPID_SRC})
+        target_include_directories(${MODULE} PRIVATE ${LUAJIT_INCLUDE_DIR})
         # "Frame.h" style includes of the Lua layer resolve through the overlay as well
         foreach(dir ${INCLUDES})
-            target_include_directories(${EXE} PRIVATE ${dir}/rapid)
+            target_include_directories(${MODULE} PRIVATE ${dir}/rapid)
         endforeach()
-        target_link_libraries(${EXE} PRIVATE ${ENGINE} ${LUAJIT_LIBRARY} ${CMAKE_DL_LIBS})
-        target_compile_options(${EXE} PRIVATE -Wall -Wextra -Wno-unused-parameter)
-        # symbol names in the stall watchdog's backtraces (GRIMROCK_DEBUG_STALLS)
-        target_link_options(${EXE} PRIVATE -rdynamic)
+        target_link_libraries(${MODULE} PRIVATE ${ENGINE} ${LUAJIT_LIBRARY} ${CMAKE_DL_LIBS})
+        target_compile_options(${MODULE} PRIVATE -Wall -Wextra -Wno-unused-parameter)
+        # a module with an undefined symbol would only fail when the launcher loads it
+        target_link_options(${MODULE} PRIVATE -Wl,--no-undefined)
         # lib64/ next to the executable holds libraries the Steam Linux Runtime lacks (see
         # tools/deploy_steam.sh); a plain build only needs $ORIGIN for libsteam_api.so.
-        set_target_properties(${EXE} PROPERTIES BUILD_RPATH "$ORIGIN/lib64:$ORIGIN"
-                                                INSTALL_RPATH "$ORIGIN/lib64:$ORIGIN")
+        set_target_properties(${MODULE} PROPERTIES BUILD_RPATH "$ORIGIN/lib64:$ORIGIN"
+                                                   INSTALL_RPATH "$ORIGIN/lib64:$ORIGIN")
         if(GRIMROCK_HAVE_STEAM)
-            # headers plus the redistributable libsteam_api.so, copied next to the executable
+            # headers plus the redistributable libsteam_api.so, copied next to the module
             # like the original's lib/ directory
-            target_include_directories(${EXE} PRIVATE ${STEAMWORKS_DIR})
-            target_link_libraries(${EXE} PRIVATE ${STEAMWORKS_DIR}/linux64/libsteam_api.so)
-            add_custom_command(TARGET ${EXE} POST_BUILD
+            target_include_directories(${MODULE} PRIVATE ${STEAMWORKS_DIR})
+            target_link_libraries(${MODULE} PRIVATE ${STEAMWORKS_DIR}/linux64/libsteam_api.so)
+            add_custom_command(TARGET ${MODULE} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                        ${STEAMWORKS_DIR}/linux64/libsteam_api.so $<TARGET_FILE_DIR:${EXE}>)
+                        ${STEAMWORKS_DIR}/linux64/libsteam_api.so $<TARGET_FILE_DIR:${MODULE}>)
         endif()
     endif()
 endfunction()
 
-add_game(1 grimrock grimrock_core grimrock_engine "${CORE_SOURCES}" "${ENGINE_SOURCES}" "${RAPID_SOURCES}" src)
+add_game(1 grimrock1 grimrock_core grimrock_engine "${CORE_SOURCES}" "${ENGINE_SOURCES}" "${RAPID_SOURCES}" src)
 game_sources(CORE2_SOURCES "${CORE_SOURCES}" core)
 game_sources(ENGINE2_SOURCES "${ENGINE_SOURCES}" engine)
 game_sources(RAPID2_SOURCES "${RAPID_SOURCES}" rapid)
 add_game(2 grimrock2 grimrock2_core grimrock2_engine "${CORE2_SOURCES}" "${ENGINE2_SOURCES}" "${RAPID2_SOURCES}" "src2;src")
+
+# the launcher: one executable for both games; ./grimrock2 (a symlink to it) runs the
+# second game
+if(TARGET grimrock1 OR TARGET grimrock2)
+    add_executable(grimrock src/launcher/main.cpp)
+    target_link_libraries(grimrock PRIVATE SDL3::SDL3 ${CMAKE_DL_LIBS})
+    target_compile_options(grimrock PRIVATE -Wall -Wextra)
+    set_target_properties(grimrock PROPERTIES BUILD_RPATH "$ORIGIN/lib64:$ORIGIN"
+                                              INSTALL_RPATH "$ORIGIN/lib64:$ORIGIN")
+    foreach(module grimrock1 grimrock2)
+        if(TARGET ${module})
+            add_dependencies(grimrock ${module})
+        endif()
+    endforeach()
+    add_custom_command(TARGET grimrock POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E create_symlink grimrock $<TARGET_FILE_DIR:grimrock>/grimrock2)
+endif()
 
 enable_testing()
 file(GLOB TEST_SOURCES CONFIGURE_DEPENDS tests/*_test.cpp)
