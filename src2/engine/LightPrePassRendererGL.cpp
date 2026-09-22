@@ -864,8 +864,7 @@ void LightPrePassRendererGL::renderAmbientLight(const Camera& camera, const Ligh
     m_pContext->useProgram(m_pAmbientLightProgram);
     m_pAmbientLightProgram->setUniform(ShaderProgramGL::U_invScreenSize,
                                        Vec2(1.0f / m_width, 1.0f / m_height));
-    const Vec3& c = light.getLightColor();
-    m_pAmbientLightProgram->setUniform(ShaderProgramGL::U_lightColor, c);
+    m_pAmbientLightProgram->setUniform(ShaderProgramGL::U_lightColor, light.getLightColor());
     const Vec3& c2 = light.getLightColor2();
     m_pAmbientLightProgram->setUniform("g_lightColor2", c2);
     const Vec3& c3 = light.getLightColor3();
@@ -913,22 +912,22 @@ void LightPrePassRendererGL::renderDirectionalLight(const Camera& camera, const 
         m_pStencilProgram->setUniform("g_viewProjMatrix", mvp);
         m_pContext->drawRect();
     }
-    ShaderProgramGL* prog =
+    ShaderProgramGL* program =
         m_directionalLightPrograms[(shadowMap ? 1 : 0) | (light.getSpecular() ? 2 : 0)];
-    m_pContext->useProgram(prog);
+    m_pContext->useProgram(program);
     m_pContext->setUniformTexture(ShaderProgramGL::U_geometryBuffer,
                                   textureOf(m_pGeometryBuffer.get()), -1, -1, 0);
     m_pContext->setUniformTexture("g_glossinessBuffer", m_pGlossinessBuffer, -1, -1, 1);
-    prog->setUniform(ShaderProgramGL::U_invScreenSize, Vec2(1.0f / m_pGeometryBuffer->getWidth(),
-                                                            1.0f / m_pGeometryBuffer->getHeight()));
-    prog->setUniform("g_invNear", 1.0f / camera.getNear());
-    prog->setUniform("g_invProjectionMatrix", camera.getInverseProjectionMatrix());
+    program->setUniform(
+        ShaderProgramGL::U_invScreenSize,
+        Vec2(1.0f / m_pGeometryBuffer->getWidth(), 1.0f / m_pGeometryBuffer->getHeight()));
+    program->setUniform("g_invNear", 1.0f / camera.getNear());
+    program->setUniform("g_invProjectionMatrix", camera.getInverseProjectionMatrix());
     // light z axis in view space
     Vec3 dir = camera.getWorldToLocalMatrix().rotation().transform(
         light.getNode()->getLocalToWorldMatrix().z);
-    prog->setUniform("g_lightDirection", dir);
-    const Vec3& c = light.getLightColor();
-    prog->setUniform(ShaderProgramGL::U_lightColor, c);
+    program->setUniform("g_lightDirection", dir);
+    program->setUniform(ShaderProgramGL::U_lightColor, light.getLightColor());
     if (shadowMap)
     {
         // view space to shadow map texture space
@@ -942,17 +941,17 @@ void LightPrePassRendererGL::renderDirectionalLight(const Camera& camera, const 
         shadowProj = bias * shadowProj;
         m_pContext->setUniformTexture("g_shadowMap", shadowMap, Material::Nearest, Material::Clamp,
                                       2);
-        prog->setUniform("g_shadowProjMatrix", shadowProj);
+        program->setUniform("g_shadowProjMatrix", shadowProj);
         m_pContext->setUniformTexture("g_rotTex", textureOf(CommonResourcesGL::RotMap),
                                       Material::Nearest, Material::Wrap, 3);
-        prog->setUniform2v("g_samples", ShadowSamples, NumShadowSamples);
+        program->setUniform2v("g_samples", ShadowSamples, NumShadowSamples);
         // the shadow fades out over the last fifth of the shadow distance
         float farZ = light.getMaxShadowDistance();
         if (camera.getFar() < farZ)
             farZ = camera.getFar();
         float fadeStart = farZ * ShadowFadeStart;
-        prog->setUniform("g_shadowFade",
-                         Vec2(1.0f / (farZ - fadeStart), -fadeStart / (farZ - fadeStart)));
+        program->setUniform("g_shadowFade",
+                            Vec2(1.0f / (farZ - fadeStart), -fadeStart / (farZ - fadeStart)));
         // the vertex shader writes it into gl_Position, so the projected depth goes
         // through the D3D to GL depth range conversion
         float startDepth = 0.0f;
@@ -962,11 +961,11 @@ void LightPrePassRendererGL::renderDirectionalLight(const Camera& camera, const 
                 Vec4(0.0f, 0.0f, projectedDepth(camera, cascadeStart), 1.0f));
             startDepth = clip.z / clip.w;
         }
-        prog->setUniform("g_cascadeStartZ", startDepth);
+        program->setUniform("g_cascadeStartZ", startDepth);
     }
     else
     {
-        prog->setUniform("g_cascadeStartZ", 0.0f);
+        program->setUniform("g_cascadeStartZ", 0.0f);
     }
     if (shadowMap)
         glEnable(GL_DEPTH_TEST);
@@ -1142,20 +1141,19 @@ void LightPrePassRendererGL::renderPointLight(const Camera& camera, const LightE
     bool useStencil = viewPos.z + range < camera.getFar();
     if (useStencil)
         renderPointLightStencil(camera, light);
-    ShaderProgramGL* prog =
+    ShaderProgramGL* program =
         m_pointLightPrograms[(shadowMap ? 1 : 0) | (light.getSpecular() ? 2 : 0)];
-    m_pContext->useProgram(prog);
+    m_pContext->useProgram(program);
     m_pContext->setUniformTexture(ShaderProgramGL::U_geometryBuffer,
                                   textureOf(m_pGeometryBuffer.get()), -1, -1, 0);
     m_pContext->setUniformTexture("g_glossinessBuffer", m_pGlossinessBuffer, -1, -1, 1);
-    prog->setUniform(ShaderProgramGL::U_invScreenSize,
-                     Vec2(1.0f / m_pLightBuffer->getWidth(), 1.0f / m_pLightBuffer->getHeight()));
-    prog->setUniform("g_invNear", 1.0f / camera.getNear());
-    prog->setUniform("g_invProjectionMatrix", camera.getInverseProjectionMatrix());
-    prog->setUniform("g_lightPosition", viewPos);
-    const Vec3& c = light.getLightColor();
-    prog->setUniform(ShaderProgramGL::U_lightColor, c);
-    prog->setUniform(ShaderProgramGL::U_invLightRange, range > 0.0f ? 1.0f / range : 0.0f);
+    program->setUniform(ShaderProgramGL::U_invScreenSize, Vec2(1.0f / m_pLightBuffer->getWidth(),
+                                                               1.0f / m_pLightBuffer->getHeight()));
+    program->setUniform("g_invNear", 1.0f / camera.getNear());
+    program->setUniform("g_invProjectionMatrix", camera.getInverseProjectionMatrix());
+    program->setUniform("g_lightPosition", viewPos);
+    program->setUniform(ShaderProgramGL::U_lightColor, light.getLightColor());
+    program->setUniform(ShaderProgramGL::U_invLightRange, range > 0.0f ? 1.0f / range : 0.0f);
     if (shadowMap)
     {
         // view space to light cube space, scaled by the range
@@ -1168,7 +1166,7 @@ void LightPrePassRendererGL::renderPointLight(const Camera& camera, const LightE
         m.pos *= invRange;
         m_pContext->setUniformTexture("g_shadowCubeMap", shadowMap, -1, -1, 2);
         Matrix4x4 shadowProj(m);
-        prog->setUniform("g_shadowProjMatrix", shadowProj);
+        program->setUniform("g_shadowProjMatrix", shadowProj);
     }
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
@@ -1202,26 +1200,26 @@ void LightPrePassRendererGL::renderSpotLight(const Camera& camera, const LightEn
     bool useStencil = viewPos.z + depth < camera.getFar();
     if (useStencil)
         renderSpotLightStencil(camera, light);
-    ShaderProgramGL* prog =
+    ShaderProgramGL* program =
         m_spotLightPrograms[(shadowMap ? 1 : 0) | (light.getSpecular() ? 2 : 0)];
-    m_pContext->useProgram(prog);
+    m_pContext->useProgram(program);
     m_pContext->setUniformTexture(ShaderProgramGL::U_geometryBuffer,
                                   textureOf(m_pGeometryBuffer.get()), -1, -1, 0);
     m_pContext->setUniformTexture("g_glossinessBuffer", m_pGlossinessBuffer, -1, -1, 1);
-    prog->setUniform(ShaderProgramGL::U_invScreenSize, Vec2(1.0f / m_pGeometryBuffer->getWidth(),
-                                                            1.0f / m_pGeometryBuffer->getHeight()));
-    prog->setUniform("g_invNear", 1.0f / camera.getNear());
-    prog->setUniform("g_invProjectionMatrix", camera.getInverseProjectionMatrix());
-    prog->setUniform("g_lightPosition", viewPos);
+    program->setUniform(
+        ShaderProgramGL::U_invScreenSize,
+        Vec2(1.0f / m_pGeometryBuffer->getWidth(), 1.0f / m_pGeometryBuffer->getHeight()));
+    program->setUniform("g_invNear", 1.0f / camera.getNear());
+    program->setUniform("g_invProjectionMatrix", camera.getInverseProjectionMatrix());
+    program->setUniform("g_lightPosition", viewPos);
     Vec3 dir = worldToView.rotation().transform(lightToWorld.z);
-    prog->setUniform("g_lightDirection", dir);
-    const Vec3& c = light.getLightColor();
-    prog->setUniform(ShaderProgramGL::U_lightColor, c);
+    program->setUniform("g_lightDirection", dir);
+    program->setUniform(ShaderProgramGL::U_lightColor, light.getLightColor());
     // cosines of the full and the sharpened cone
-    prog->setUniform(
+    program->setUniform(
         "g_spotFalloff",
         Vec2(std::cos(halfAngle), std::cos(halfAngle * (1.0f - light.getSpotSharpness()))));
-    prog->setUniform(ShaderProgramGL::U_invLightRange, range > 0.0f ? 1.0f / range : 0.0f);
+    program->setUniform(ShaderProgramGL::U_invLightRange, range > 0.0f ? 1.0f / range : 0.0f);
     if (shadowMap)
     {
         // view space to the light's projected texture space, inside the region of the
@@ -1245,7 +1243,7 @@ void LightPrePassRendererGL::renderSpotLight(const Camera& camera, const LightEn
         bias.m[13] = 0.5f / shadowMap->getHeight() + scale;
         Matrix4x4 shadowProj = (bias * lightProj) * Matrix4x4(viewToLight);
         m_pContext->setUniformTexture("g_shadowMap", shadowMap, -1, -1, 2);
-        prog->setUniform("g_shadowProjMatrix", shadowProj);
+        program->setUniform("g_shadowProjMatrix", shadowProj);
     }
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
@@ -1708,7 +1706,6 @@ void LightPrePassRendererGL::blurCubeMapGPU(TextureCubeGL* source, TextureCubeGL
     m_pContext->setBlendMode(RenderContextGL::Blend_Opaque);
     glDisable(GL_CULL_FACE);
     m_pContext->useProgram(m_pBlurCubeMapProgram);
-    GLuint program = m_pBlurCubeMapProgram->getProgram();
     MersenneTwister rng;
     Vec3 samples[16];
     for (int i = 0; i < 16; ++i)
@@ -1744,7 +1741,8 @@ void LightPrePassRendererGL::blurCubeMapGPU(TextureCubeGL* source, TextureCubeGL
         }
         Matrix3x3 rot = faceRotations[face];
         rot.transpose();
-        glUniformMatrix3fv(glGetUniformLocation(program, "g_faceRot"), 1, GL_FALSE, &rot.x.x);
+        glUniformMatrix3fv(glGetUniformLocation(m_pBlurCubeMapProgram->getProgram(), "g_faceRot"),
+                           1, GL_FALSE, &rot.x.x);
         m_pContext->drawRect();
     }
 }
