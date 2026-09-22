@@ -1063,7 +1063,21 @@ void RendererGL::beginRender()
     memset(&g_renderStats, 0, sizeof(g_renderStats));
     im::prepare(m_config.width, m_config.height);
 }
-// 0x004c5050
+// 0x004c5050: one frame of the scene as seen by camera.
+//
+//   gather      the visible entities, then the ones the CPU occlusion buffer does not hide,
+//               and the cube faces of each point light that can be seen
+//   notebook    the forward renderer instead of everything below, when configured or forced
+//   geometry    normals, depth and glossiness of the opaque meshes (two targets)
+//   light       every light into the light buffer; shadow maps are rendered on demand
+//   material 1  the opaque meshes lit from the light buffer, those that take ambient occlusion
+//   ambient occlusion over what is drawn so far
+//   transparent pass 4, material 2 (the meshes that do not take occlusion)
+//   water refraction, transparent pass 5, fog, transparent pass 6 (particles last)
+//   tonemap     the frame buffer into the target (or the back buffer)
+//
+// The settings of the renderer are handed to the light pre-pass renderer before the
+// passes, and a debug flag can show one of the intermediate buffers afterwards.
 void RendererGL::renderScene(Scene& scene, Camera& camera, RenderableTexture* target, int passMask)
 {
     m_pContext->setScene(&scene, &camera);
