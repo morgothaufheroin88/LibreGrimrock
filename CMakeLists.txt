@@ -113,8 +113,10 @@ function(add_game GAME MODULE CORE ENGINE CORE_SRC ENGINE_SRC RAPID_SRC INCLUDES
         target_link_options(${MODULE} PRIVATE -Wl,--no-undefined)
         # lib64/ next to the executable holds libraries the Steam Linux Runtime lacks (see
         # tools/deploy_steam.sh); a plain build only needs $ORIGIN for libsteam_api.so.
-        set_target_properties(${MODULE} PROPERTIES BUILD_RPATH "$ORIGIN/lib64:$ORIGIN"
-                                                   INSTALL_RPATH "$ORIGIN/lib64:$ORIGIN")
+        # only relative paths: the build tree gets libsteam_api.so copied next to the module,
+        # and a deployed module must not point into this machine's build
+        set_target_properties(${MODULE} PROPERTIES INSTALL_RPATH "$ORIGIN/lib64:$ORIGIN"
+                                                   BUILD_WITH_INSTALL_RPATH ON)
         if(GRIMROCK_HAVE_STEAM)
             # headers plus the redistributable libsteam_api.so, copied next to the module
             # like the original's lib/ directory
@@ -145,8 +147,8 @@ if(TARGET grimrock1 OR TARGET grimrock2)
         target_link_libraries(grimrock PRIVATE PkgConfig::FONTCONFIG)
     endif()
     target_compile_options(grimrock PRIVATE -Wall -Wextra)
-    set_target_properties(grimrock PROPERTIES BUILD_RPATH "$ORIGIN/lib64:$ORIGIN"
-                                              INSTALL_RPATH "$ORIGIN/lib64:$ORIGIN")
+    set_target_properties(grimrock PROPERTIES INSTALL_RPATH "$ORIGIN/lib64:$ORIGIN"
+                                              BUILD_WITH_INSTALL_RPATH ON)
     foreach(module grimrock1 grimrock2)
         if(TARGET ${module})
             add_dependencies(grimrock ${module})
