@@ -89,6 +89,36 @@ def body(lines, start):
             break
     return '\n'.join(out)
 
+def static_helpers(lines):
+    """the file-static functions of a unit by name, with their bodies"""
+    helpers = {}
+    for i, line in enumerate(lines):
+        m = re.match(r'static (?:inline )?[\w:<>*& ]+?\b(\w+)\(', line)
+        if m and not line.rstrip().endswith(';'):
+            text = body(lines, i)
+            if text:
+                helpers[m.group(1)] = text
+    return helpers
+
+
+def with_helpers(text, helpers, depth=2):
+    """a body together with the file helpers it calls (the reconstruction factors some
+    of the original's code into them)"""
+    seen = set()
+    extra = []
+    frontier = [text]
+    for _ in range(depth):
+        found = []
+        for chunk in frontier:
+            for name in set(re.findall(r'\b(\w+)\(', chunk)):
+                if name in helpers and name not in seen:
+                    seen.add(name)
+                    found.append(helpers[name])
+        extra += found
+        frontier = found
+    return '\n'.join([text] + extra)
+
+
 
 def close(a, b):
     # the sign is dropped: our sources write the minus as an operator, the pseudocode
@@ -103,6 +133,7 @@ for directory in ('src', 'src2'):
         if want and want not in str(path):
             continue
         lines = path.read_text().split('\n')
+        helpers = static_helpers(lines)
         for i, line in enumerate(lines):
             m = re.match(r'// 0x00([0-9a-f]{6})', line.strip())
             if not m:
@@ -113,6 +144,7 @@ for directory in ('src', 'src2'):
             ours = body(lines, i + 1)
             if not ours:
                 continue
+            ours = with_helpers(ours, helpers)
             # the string literals of the pseudocode are not numbers ("1.2.5")
             pseudocode = re.sub(r'"(?:[^"\\\n]|\\.)*"', '""', native.read_text())
             theirs = {v for v in floats(pseudocode, True) if v not in BORING}
