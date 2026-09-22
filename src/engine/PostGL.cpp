@@ -132,23 +132,20 @@ void ScreenSpaceAmbientOcclusionGL::render(const Camera& camera, Texture2DGL* ge
     m_pContext->setRenderTarget(m_pDepthBuffer, 0, 0, 0);
     m_pContext->useProgram(m_pPrepareDepthProgram);
     m_pContext->setUniformTexture("geometryBuffer", geometryBuffer, -1, -1);
-    glUniform2f(glGetUniformLocation(m_pPrepareDepthProgram->getProgram(), "invScreenSize"),
-                1.0f / m_width, 1.0f / m_height);
+    m_pPrepareDepthProgram->setUniform("invScreenSize", Vec2(1.0f / m_width, 1.0f / m_height));
     m_pContext->drawRect();
 
     // occlusion
     m_pContext->setRenderTarget(m_pOcclusionBuffer, 0, 0, 0);
     ShaderProgramGL* prog = quality > 0 ? m_pOcclusionHQProgram : m_pOcclusionProgram;
     m_pContext->useProgram(prog);
-    GLuint program = prog->getProgram();
     m_pContext->setUniformTexture("geometryBuffer", geometryBuffer, -1, -1);
     m_pContext->setUniformTexture("depthBuffer", m_pDepthBuffer, -1, -1);
     m_pContext->setUniformTexture("rotTex", m_pRotTexture, -1, -1);
-    glUniformMatrix4fv(glGetUniformLocation(program, "invProjectionMatrix"), 1, GL_FALSE,
-                       invProj.m);
-    glUniform1f(glGetUniformLocation(program, "invNear"), 1.0f / camera.getNear());
-    glUniform2fv(glGetUniformLocation(program, "samples"), NumSamples, &samples[0][0]);
-    glUniform1f(glGetUniformLocation(program, "pixRadius"), SampleRadiusPixels);
+    prog->setUniform("invProjectionMatrix", invProj);
+    prog->setUniform("invNear", 1.0f / camera.getNear());
+    prog->setUniform2v("samples", &samples[0][0], NumSamples);
+    prog->setUniform("pixRadius", SampleRadiusPixels);
     // view space size of a pixel at unit depth, from the near plane corners
     Vec4 topLeft = invProj.transform(Vec4(-1, 1, 0, 1));
     Vec4 bottomRight = invProj.transform(Vec4(1, -1, 0, 1));
@@ -156,9 +153,8 @@ void ScreenSpaceAmbientOcclusionGL::render(const Camera& camera, Texture2DGL* ge
     float ay = topLeft.y / topLeft.w / (topLeft.z / topLeft.w);
     float bx = bottomRight.x / bottomRight.w / (bottomRight.z / bottomRight.w);
     float by = bottomRight.y / bottomRight.w / (bottomRight.z / bottomRight.w);
-    glUniform2f(glGetUniformLocation(program, "screenToView"), (bx - ax) / m_width,
-                (ay - by) / m_height);
-    glUniform2f(glGetUniformLocation(program, "invScreenSize"), 1.0f / m_width, 1.0f / m_height);
+    prog->setUniform("screenToView", Vec2((bx - ax) / m_width, (ay - by) / m_height));
+    prog->setUniform("invScreenSize", Vec2(1.0f / m_width, 1.0f / m_height));
     m_pContext->drawRect();
 
     // separable blur, the second pass modulates the colour buffer
@@ -168,21 +164,17 @@ void ScreenSpaceAmbientOcclusionGL::render(const Camera& camera, Texture2DGL* ge
     m_pContext->setRenderTarget(m_pBlurBuffer, 0, 0, 0);
     m_pContext->useProgram(m_pBlurXProgram);
     m_pContext->setUniformTexture("ssaoBuffer", m_pOcclusionBuffer, -1, -1);
-    glUniform1f(glGetUniformLocation(m_pBlurXProgram->getProgram(), "threshold"),
-                BlurDepthThreshold);
-    glUniform2fv(glGetUniformLocation(m_pBlurXProgram->getProgram(), "offset"), 4, offsetX);
-    glUniform2f(glGetUniformLocation(m_pBlurXProgram->getProgram(), "invScreenSize"),
-                1.0f / m_width, 1.0f / m_height);
+    m_pBlurXProgram->setUniform("threshold", BlurDepthThreshold);
+    m_pBlurXProgram->setUniform2v("offset", offsetX, 4);
+    m_pBlurXProgram->setUniform("invScreenSize", Vec2(1.0f / m_width, 1.0f / m_height));
     m_pContext->drawRect();
 
     m_pContext->setRenderTarget(colorBuffer, 0, 0, 0);
     m_pContext->useProgram(m_pBlurYProgram);
     m_pContext->setUniformTexture("ssaoBuffer", m_pBlurBuffer, -1, -1);
-    glUniform1f(glGetUniformLocation(m_pBlurYProgram->getProgram(), "threshold"),
-                BlurDepthThreshold);
-    glUniform2fv(glGetUniformLocation(m_pBlurYProgram->getProgram(), "offset"), 4, offsetY);
-    glUniform2f(glGetUniformLocation(m_pBlurYProgram->getProgram(), "invScreenSize"),
-                1.0f / m_width, 1.0f / m_height);
+    m_pBlurYProgram->setUniform("threshold", BlurDepthThreshold);
+    m_pBlurYProgram->setUniform2v("offset", offsetY, 4);
+    m_pBlurYProgram->setUniform("invScreenSize", Vec2(1.0f / m_width, 1.0f / m_height));
     m_pContext->setBlendMode(RenderContextGL::Blend_Modulative);
     m_pContext->drawRect();
 }
@@ -209,13 +201,12 @@ void FogFilterGL::render(Texture2DGL* geometryBuffer, Texture2DGL* target)
     glDisable(GL_ALPHA_TEST);
     m_pContext->setBlendMode(RenderContextGL::Blend_Translucent);
     m_pContext->useProgram(m_pProgram);
-    GLuint program = m_pProgram->getProgram();
     m_pContext->setUniformTexture("geometryBuffer", geometryBuffer, -1, -1);
-    glUniform2f(glGetUniformLocation(program, "invScreenSize"), 1.0f / geometryBuffer->getWidth(),
-                1.0f / geometryBuffer->getHeight());
-    glUniform3f(glGetUniformLocation(program, "fogColor"), m_color.x, m_color.y, m_color.z);
+    m_pProgram->setUniform("invScreenSize", Vec2(1.0f / geometryBuffer->getWidth(),
+                                                 1.0f / geometryBuffer->getHeight()));
+    m_pProgram->setUniform("fogColor", m_color);
     float range = m_end - m_start;
-    glUniform2f(glGetUniformLocation(program, "fogParams"), 1.0f / range, -m_start / range);
+    m_pProgram->setUniform("fogParams", Vec2(1.0f / range, -m_start / range));
     m_pContext->drawRect();
 }
 
@@ -245,8 +236,8 @@ void TonemapperGL::render(Texture2DGL* source, Texture2DGL* target)
     m_pContext->setBlendMode(RenderContextGL::Blend_Opaque);
     m_pContext->useProgram(m_pProgram);
     m_pContext->setUniformTexture("sourceTex", source, -1, -1);
-    glUniform2f(glGetUniformLocation(m_pProgram->getProgram(), "invScreenSize"),
-                1.0f / source->getWidth(), 1.0f / source->getHeight());
+    m_pProgram->setUniform("invScreenSize",
+                           Vec2(1.0f / source->getWidth(), 1.0f / source->getHeight()));
     m_pContext->drawRect();
 }
 

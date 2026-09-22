@@ -378,19 +378,15 @@ void LightPrePassRendererGL::renderMesh(const Camera& camera, const MeshEntity& 
         const Matrix4x3& localToWorld = entity.getNode()->getLocalToWorldMatrix();
         Matrix4x4 mvp = RenderContextGL::sm_d3dToGLProj *
                         (camera.getViewProjectionMatrix() * Matrix4x4(localToWorld));
-        glUniformMatrix4fv(program->getUniform(ShaderProgramGL::U_modelViewProj), 1, GL_FALSE,
-                           mvp.m);
+        program->setUniform(ShaderProgramGL::U_modelViewProj, mvp);
         Matrix4x4 modelView(camera.getWorldToLocalMatrix() * localToWorld);
-        glUniformMatrix4fv(program->getUniform(ShaderProgramGL::U_modelView), 1, GL_FALSE,
-                           modelView.m);
+        program->setUniform(ShaderProgramGL::U_modelView, modelView);
         if (skinned)
             m_pContext->setSkinningMatrices(entity);
-        glUniform2f(glGetUniformLocation(program->getProgram(), "invScreenSize"), 1.0f / m_width,
-                    1.0f / m_height);
+        program->setUniform("invScreenSize", Vec2(1.0f / m_width, 1.0f / m_height));
         const Vec3& emissive = entity.getEmissiveColor();
-        glUniform3f(glGetUniformLocation(program->getProgram(), "emissiveColor"), emissive.x,
-                    emissive.y, emissive.z);
-        glUniform1f(program->getUniform(ShaderProgramGL::U_glossiness), material->getGlossiness());
+        program->setUniform("emissiveColor", emissive);
+        program->setUniform(ShaderProgramGL::U_glossiness, material->getGlossiness());
         if (material->getParamCount() > 0)
             m_pContext->setShaderParams(*material);
         if (material->getDoubleSided())
@@ -438,7 +434,7 @@ void LightPrePassRendererGL::renderAmbientLight(const Camera& camera, const Ligh
 {
     m_pContext->useProgram(m_pAmbientLightProgram);
     const Vec3& c = light.getLightColor();
-    glUniform3f(m_pAmbientLightProgram->getUniform(ShaderProgramGL::U_lightColor), c.x, c.y, c.z);
+    m_pAmbientLightProgram->setUniform(ShaderProgramGL::U_lightColor, c);
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
     glDisable(GL_ALPHA_TEST);
@@ -450,20 +446,20 @@ void LightPrePassRendererGL::renderAmbientLight(const Camera& camera, const Ligh
 void LightPrePassRendererGL::renderDirectionalLight(const Camera& camera, const LightEntity& light)
 {
     m_pContext->useProgram(m_pDirectionalLightProgram);
-    GLuint program = m_pDirectionalLightProgram->getProgram();
     m_pContext->setUniformTexture("geometryBuffer", m_pGeometryBuffer, -1, -1);
     m_pContext->setUniformTexture("glossinessBuffer", m_pGlossinessBuffer, -1, -1);
-    glUniform2f(glGetUniformLocation(program, "invScreenSize"),
-                1.0f / m_pGeometryBuffer->getWidth(), 1.0f / m_pGeometryBuffer->getHeight());
-    glUniform1f(glGetUniformLocation(program, "invNear"), 1.0f / camera.getNear());
-    glUniformMatrix4fv(glGetUniformLocation(program, "invProjectionMatrix"), 1, GL_FALSE,
-                       camera.getInverseProjectionMatrix().m);
+    m_pDirectionalLightProgram->setUniform(
+        "invScreenSize",
+        Vec2(1.0f / m_pGeometryBuffer->getWidth(), 1.0f / m_pGeometryBuffer->getHeight()));
+    m_pDirectionalLightProgram->setUniform("invNear", 1.0f / camera.getNear());
+    m_pDirectionalLightProgram->setUniform("invProjectionMatrix",
+                                           camera.getInverseProjectionMatrix());
     // light z axis in view space
     Matrix4x3 worldToView(camera.getWorldToLocalMatrix().rotation());
     Vec3 dir = worldToView.transformPoint(light.getNode()->getLocalToWorldMatrix().z);
-    glUniform3f(glGetUniformLocation(program, "lightDirection"), dir.x, dir.y, dir.z);
+    m_pDirectionalLightProgram->setUniform("lightDirection", dir);
     const Vec3& c = light.getLightColor();
-    glUniform3f(glGetUniformLocation(program, "lightColor"), c.x, c.y, c.z);
+    m_pDirectionalLightProgram->setUniform("lightColor", c);
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
     glDisable(GL_ALPHA_TEST);
@@ -613,8 +609,7 @@ void LightPrePassRendererGL::renderPointLightStencil(const Camera& camera, const
     m.z *= range;
     Matrix4x4 mvp =
         RenderContextGL::sm_d3dToGLProj * (camera.getViewProjectionMatrix() * Matrix4x4(m));
-    glUniformMatrix4fv(glGetUniformLocation(m_pStencilProgram->getProgram(), "viewProjMatrix"), 1,
-                       GL_FALSE, mvp.m);
+    m_pStencilProgram->setUniform("viewProjMatrix", mvp);
     m_pContext->drawMesh(*CommonResourcesGL::SphereMesh);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 }
@@ -635,18 +630,16 @@ void LightPrePassRendererGL::renderPointLight(const Camera& camera, const LightE
         renderPointLightStencil(camera, light);
     ShaderProgramGL* prog = shadowMap ? m_pPointLightShadowProgram : m_pPointLightProgram;
     m_pContext->useProgram(prog);
-    GLuint program = prog->getProgram();
     m_pContext->setUniformTexture("geometryBuffer", m_pGeometryBuffer, -1, -1);
     m_pContext->setUniformTexture("glossinessBuffer", m_pGlossinessBuffer, -1, -1);
-    glUniform2f(glGetUniformLocation(program, "invScreenSize"), 1.0f / m_pLightBuffer->getWidth(),
-                1.0f / m_pLightBuffer->getHeight());
-    glUniform1f(glGetUniformLocation(program, "invNear"), 1.0f / camera.getNear());
-    glUniformMatrix4fv(glGetUniformLocation(program, "invProjectionMatrix"), 1, GL_FALSE,
-                       camera.getInverseProjectionMatrix().m);
-    glUniform3f(glGetUniformLocation(program, "lightPosition"), viewPos.x, viewPos.y, viewPos.z);
+    prog->setUniform("invScreenSize",
+                     Vec2(1.0f / m_pLightBuffer->getWidth(), 1.0f / m_pLightBuffer->getHeight()));
+    prog->setUniform("invNear", 1.0f / camera.getNear());
+    prog->setUniform("invProjectionMatrix", camera.getInverseProjectionMatrix());
+    prog->setUniform("lightPosition", viewPos);
     const Vec3& c = light.getLightColor();
-    glUniform3f(prog->getUniform(ShaderProgramGL::U_lightColor), c.x, c.y, c.z);
-    glUniform1f(glGetUniformLocation(program, "invLightRange"), range > 0.0f ? 1.0f / range : 0.0f);
+    prog->setUniform(ShaderProgramGL::U_lightColor, c);
+    prog->setUniform("invLightRange", range > 0.0f ? 1.0f / range : 0.0f);
     if (shadowMap)
     {
         // view space to light cube space, scaled by the range
@@ -659,8 +652,7 @@ void LightPrePassRendererGL::renderPointLight(const Camera& camera, const LightE
         m.pos *= invRange;
         m_pContext->setUniformTexture("shadowCubeMap", shadowMap, -1, -1);
         Matrix4x4 shadowProj(m);
-        glUniformMatrix4fv(glGetUniformLocation(program, "shadowProjMatrix"), 1, GL_FALSE,
-                           shadowProj.m);
+        prog->setUniform("shadowProjMatrix", shadowProj);
     }
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
@@ -750,16 +742,13 @@ void LightPrePassRendererGL::renderPointLightShadowMap(const LightEntity& light,
                 m_pContext->useProgram(
                     m_pDefaultShader->getProgram(RenderableShaderGL::ShadowPass, variant));
                 ShaderProgramGL* program = m_pContext->getProgram();
-                glUniform1f(glGetUniformLocation(program->getProgram(), "invLightRange"),
-                            1.0f / range);
+                program->setUniform("invLightRange", 1.0f / range);
                 const Matrix4x3& localToWorld = entity.getNode()->getLocalToWorldMatrix();
                 Matrix4x4 mvp =
                     RenderContextGL::sm_d3dToGLProj * (viewProj * Matrix4x4(localToWorld));
-                glUniformMatrix4fv(program->getUniform(ShaderProgramGL::U_modelViewProj), 1,
-                                   GL_FALSE, mvp.m);
+                program->setUniform(ShaderProgramGL::U_modelViewProj, mvp);
                 Matrix4x4 modelView(view * localToWorld);
-                glUniformMatrix4fv(program->getUniform(ShaderProgramGL::U_modelView), 1, GL_FALSE,
-                                   modelView.m);
+                program->setUniform(ShaderProgramGL::U_modelView, modelView);
                 if (skinned)
                     m_pContext->setSkinningMatrices(entity);
                 if (material->getDoubleSided())
@@ -833,7 +822,7 @@ void LightPrePassRendererGL::blurCubeMapGPU(TextureCubeGL* source, TextureCubeGL
         samples[i] = rot.y;
     }
     m_pContext->setUniformTexture("tex", source, -1, -1);
-    glUniform3fv(glGetUniformLocation(program, "samples"), 16, &samples[0].x);
+    m_pBlurCubeMapProgram->setUniform3v("samples", &samples[0].x, 16);
     static const Matrix3x3 faceRotations[6] = {
         Matrix3x3(Vec3(0, 0, 1), Vec3(0, -1, 0), Vec3(-1, 0, 0)),
         Matrix3x3(Vec3(0, 0, -1), Vec3(0, -1, 0), Vec3(1, 0, 0)),

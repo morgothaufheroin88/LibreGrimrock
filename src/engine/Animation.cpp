@@ -275,8 +275,7 @@ void AnimationController::update(float dt)
     for (int i = 0; i < m_states.size(); ++i)
     {
         AnimationState* state = m_states[i].get();
-        if (state->m_playing && !state->m_loop &&
-            state->m_animation->getDuration() < state->m_time)
+        if (state->m_playing && !state->m_loop && state->m_animation->getDuration() < state->m_time)
             state->m_playing = false;
     }
 #endif
@@ -524,10 +523,12 @@ Animation* loadAnimation(const char* filename)
         for (int k = 0; k < numKeys; ++k)
         {
             Animation::TrackKey& key = keys.push_back();
-            key.pos = positions.size() > 0 ? positions[k < positions.size() ? k : positions.size() - 1]
-                                           : Vec3(0, 0, 0);
-            key.rot = rotations.size() > 0 ? rotations[k < rotations.size() ? k : rotations.size() - 1]
-                                           : Quat(0, 0, 0, 1);
+            key.pos = positions.size() > 0
+                          ? positions[k < positions.size() ? k : positions.size() - 1]
+                          : Vec3(0, 0, 0);
+            key.rot = rotations.size() > 0
+                          ? rotations[k < rotations.size() ? k : rotations.size() - 1]
+                          : Quat(0, 0, 0, 1);
             key.scale = scales.size() > 0 ? scales[k < scales.size() ? k : scales.size() - 1]
                                           : Vec3(1, 1, 1);
         }

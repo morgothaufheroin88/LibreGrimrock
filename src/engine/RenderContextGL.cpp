@@ -471,8 +471,7 @@ void RenderContextGL::setSkinningMatrices(const MeshEntity& entity)
         out[10] = m.z.z;
         out[11] = m.pos.z;
     }
-    glUniform4fv(m_pProgram->getUniform(ShaderProgramGL::U_skinningMatrices), numBones * 3,
-                 skinningMatrices);
+    m_pProgram->setUniform4v(ShaderProgramGL::U_skinningMatrices, skinningMatrices, numBones * 3);
 }
 // 0x08117ee0
 void* RenderContextGL::streamWrite(int bytes)

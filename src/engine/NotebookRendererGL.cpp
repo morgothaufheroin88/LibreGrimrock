@@ -127,40 +127,32 @@ void NotebookRendererGL::renderMesh(const Camera& camera, const MeshEntity& enti
         const Matrix4x3& localToWorld = entity.getNode()->getLocalToWorldMatrix();
         Matrix4x4 mvp = RenderContextGL::sm_d3dToGLProj *
                         (camera.getViewProjectionMatrix() * Matrix4x4(localToWorld));
-        glUniformMatrix4fv(program->getUniform(ShaderProgramGL::U_modelViewProj), 1, GL_FALSE,
-                           mvp.m);
+        program->setUniform(ShaderProgramGL::U_modelViewProj, mvp);
         Matrix4x4 modelView(camera.getWorldToLocalMatrix() * localToWorld);
-        glUniformMatrix4fv(program->getUniform(ShaderProgramGL::U_modelView), 1, GL_FALSE,
-                           modelView.m);
+        program->setUniform(ShaderProgramGL::U_modelView, modelView);
         if (skinned)
             m_pContext->setSkinningMatrices(entity);
         const Vec3& emissive = entity.getEmissiveColor();
-        glUniform3f(glGetUniformLocation(prog, "emissiveColor"), emissive.x, emissive.y,
-                    emissive.z);
-        glUniform1f(program->getUniform(ShaderProgramGL::U_glossiness), material->getGlossiness());
-        glUniform3fv(glGetUniformLocation(prog, "vlightColor"), MaxShaderVertexLights,
-                     &m_vlightColor[0].x);
-        glUniform3fv(glGetUniformLocation(prog, "vlightPosition"), MaxShaderVertexLights,
-                     &m_vlightPosition[0].x);
+        program->setUniform("emissiveColor", emissive);
+        program->setUniform(ShaderProgramGL::U_glossiness, material->getGlossiness());
+        program->setUniform3v("vlightColor", &m_vlightColor[0].x, MaxShaderVertexLights);
+        program->setUniform3v("vlightPosition", &m_vlightPosition[0].x, MaxShaderVertexLights);
         glUniform1fv(glGetUniformLocation(prog, "vlightInvRange"), MaxShaderVertexLights,
                      m_vlightInvRange);
         if (!primaryLight)
         {
-            glUniform3f(glGetUniformLocation(prog, "lightColor"), 0, 0, 0);
-            glUniform3f(glGetUniformLocation(prog, "lightPosition"), 0, 0, 0);
-            glUniform1f(glGetUniformLocation(prog, "invLightRange"), 1.0f);
+            program->setUniform("lightColor", Vec3(0, 0, 0));
+            program->setUniform("lightPosition", Vec3(0, 0, 0));
+            program->setUniform("invLightRange", 1.0f);
         }
         else
         {
             const Vec3& lightColor = primaryLight->getLightColor();
-            glUniform3f(glGetUniformLocation(prog, "lightColor"), lightColor.x, lightColor.y,
-                        lightColor.z);
+            program->setUniform("lightColor", lightColor);
             Vec3 lightPos = camera.getWorldToLocalMatrix().transformPoint(
                 primaryLight->getNode()->getLocalToWorldMatrix().pos);
-            glUniform3f(glGetUniformLocation(prog, "lightPosition"), lightPos.x, lightPos.y,
-                        lightPos.z);
-            glUniform1f(glGetUniformLocation(prog, "invLightRange"),
-                        1.0f / primaryLight->getLightRange());
+            program->setUniform("lightPosition", lightPos);
+            program->setUniform("invLightRange", 1.0f / primaryLight->getLightRange());
         }
         if (material->getDoubleSided())
             glDisable(GL_CULL_FACE);

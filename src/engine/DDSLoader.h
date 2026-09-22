@@ -16,22 +16,22 @@ class DDSLoader
     };
     enum Format
     {
-        FormatA8R8G8B8 = 0x15,   // D3DFMT_A8R8G8B8
-        FormatX8R8G8B8 = 0x16,   // D3DFMT_X8R8G8B8
+        FormatA8R8G8B8 = 0x15, // D3DFMT_A8R8G8B8
+        FormatX8R8G8B8 = 0x16, // D3DFMT_X8R8G8B8
         // Grimrock 2 (grimrock2.exe 0x004f3a40) also reads the 16/32 bit formats
-        FormatG16R16 = 0x22,          // D3DFMT_G16R16
-        FormatA16B16G16R16 = 0x24,    // D3DFMT_A16B16G16R16
-        FormatR16F = 0x6f,            // D3DFMT_R16F
-        FormatG16R16F = 0x70,         // D3DFMT_G16R16F
-        FormatA16B16G16R16F = 0x71,   // D3DFMT_A16B16G16R16F
-        FormatR32F = 0x72,            // D3DFMT_R32F
-        FormatG32R32F = 0x73,         // D3DFMT_G32R32F
-        FormatA32B32G32R32F = 0x74,   // D3DFMT_A32B32G32R32F
-        FormatDXT1 = 0x31545844, // "DXT1"
-        FormatDXT2 = 0x32545844, // "DXT2"
-        FormatDXT3 = 0x33545844, // "DXT3"
-        FormatDXT4 = 0x34545844, // "DXT4"
-        FormatDXT5 = 0x35545844  // "DXT5"
+        FormatG16R16 = 0x22,        // D3DFMT_G16R16
+        FormatA16B16G16R16 = 0x24,  // D3DFMT_A16B16G16R16
+        FormatR16F = 0x6f,          // D3DFMT_R16F
+        FormatG16R16F = 0x70,       // D3DFMT_G16R16F
+        FormatA16B16G16R16F = 0x71, // D3DFMT_A16B16G16R16F
+        FormatR32F = 0x72,          // D3DFMT_R32F
+        FormatG32R32F = 0x73,       // D3DFMT_G32R32F
+        FormatA32B32G32R32F = 0x74, // D3DFMT_A32B32G32R32F
+        FormatDXT1 = 0x31545844,    // "DXT1"
+        FormatDXT2 = 0x32545844,    // "DXT2"
+        FormatDXT3 = 0x33545844,    // "DXT3"
+        FormatDXT4 = 0x34545844,    // "DXT4"
+        FormatDXT5 = 0x35545844     // "DXT5"
     };
     // DDS_HEADER / DDS_PIXELFORMAT / DDSCAPS2 bits used by the loader.
     static constexpr unsigned int Magic = 0x20534444;      // "DDS "
