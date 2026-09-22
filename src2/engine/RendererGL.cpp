@@ -31,6 +31,11 @@
 namespace engine
 {
 
+// Debugging aid: GRIMROCK_DEBUG_NOSHADOWS=1 renders the lights without their shadow
+// maps; the scripts set the shadows from the configuration, so the switch is applied
+// where the renderer hands its settings to the light pre-pass renderer.
+static const bool g_debugNoShadows = getenv("GRIMROCK_DEBUG_NOSHADOWS") != 0;
+
 using namespace core;
 
 constexpr int ReportedTextureMemory = 0x10000000; // 256 MB
@@ -1002,6 +1007,23 @@ void RendererGL::init(const RendererConfig& config)
     registerAssetProcessor(AssetProcessor::TextureAsset, "tga", "dds");
     registerAssetProcessor(AssetProcessor::TextureAsset, "dds", "dds");
     Graphics::sm_pActive = m_pGraphics;
+    // Debugging aid: GRIMROCK_DEBUG_BUFFER=normal|glossiness|light|ssao sets the flag that
+    // makes renderScene draw that intermediate buffer instead of the frame, which is what
+    // Renderer.setFlag("draw_<name>_buffer") does from Lua.
+    if (const char* debugBuffer = getenv("GRIMROCK_DEBUG_BUFFER"))
+    {
+        static const struct
+        {
+            const char* name;
+            int flag;
+        } buffers[] = {{"normal", Flag_DrawNormalBuffer},
+                       {"glossiness", Flag_DrawGlossinessBuffer},
+                       {"light", Flag_DrawLightBuffer},
+                       {"ssao", Flag_DrawAmbientOcclusionBuffer}};
+        for (size_t i = 0; i < sizeof(buffers) / sizeof(buffers[0]); ++i)
+            if (strcmp(debugBuffer, buffers[i].name) == 0)
+                m_flags |= buffers[i].flag;
+    }
     glFrontFace(GL_CW);
     checkGLErrors("glFrontFace");
 }
@@ -1152,11 +1174,7 @@ void RendererGL::renderScene(Scene& scene, Camera& camera, RenderableTexture* ta
     lpp->m_normalMapping = m_normalMapping;
     lpp->m_textureFilter = m_textureFilter;
     lpp->m_renderMeshes = m_renderMeshes;
-    lpp->m_renderShadows = m_renderShadows;
-    // Debugging aid: GRIMROCK_DEBUG_NOSHADOWS=1 renders the lights without shadow maps.
-    static const bool noShadows = getenv("GRIMROCK_DEBUG_NOSHADOWS") != 0;
-    if (noShadows)
-        lpp->m_renderShadows = false;
+    lpp->m_renderShadows = m_renderShadows && !g_debugNoShadows;
     lpp->m_shadowQuality = m_shadowQuality;
     if (camera.getInverseCulling())
         glCullFace(GL_FRONT);
@@ -1186,22 +1204,6 @@ void RendererGL::renderScene(Scene& scene, Camera& camera, RenderableTexture* ta
     checkGLErrors("glViewport");
     glScissor(0, 0, m_config.width, m_config.height);
     checkGLErrors("glScissor");
-    // Debugging aid: GRIMROCK_DEBUG_BUFFER=geometry|glossiness|light|ssao|frame draws the
-    // intermediate buffer instead of the frame (the flags are set from Lua).
-    static const char* debugBuffer = getenv("GRIMROCK_DEBUG_BUFFER");
-    if (debugBuffer)
-    {
-        if (strcmp(debugBuffer, "geometry") == 0)
-            drawBuffer(geometryBuffer, 1.0f);
-        else if (strcmp(debugBuffer, "glossiness") == 0)
-            drawBuffer(lpp->getGlossinessBuffer(), 0.01f);
-        else if (strcmp(debugBuffer, "light") == 0)
-            drawBuffer(lpp->getLightBuffer(), 1.0f);
-        else if (strcmp(debugBuffer, "ssao") == 0)
-            drawBuffer(m_pAmbientOcclusion->getResultBuffer(), 1.0f);
-        else if (strcmp(debugBuffer, "frame") == 0)
-            drawBuffer(lpp->getFrameBuffer(), 1.0f);
-    }
     if (m_flags & Flag_DrawNormalBuffer)
         drawBuffer(geometryBuffer, 1.0f);
     else if (m_flags & Flag_DrawGlossinessBuffer)
