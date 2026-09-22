@@ -267,8 +267,9 @@ void LightPrePassRendererGL::resizeRenderBuffers(int width, int height)
     glGenRenderbuffers(1, &m_depthStencilBuffer);
     glBindRenderbuffer(GL_RENDERBUFFER, m_depthStencilBuffer);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-    if (!m_pGeometryBuffer)
-        m_pGeometryBuffer.reset(new RenderableTextureGL);
+    // a new wrapper every time, as the original does: the scripts may still hold the old
+    // one and the reference count keeps it alive until they drop it
+    m_pGeometryBuffer.reset(new RenderableTextureGL);
     m_pGeometryBuffer->setTexture(new Texture2DGL(width, height, 1, GL_RGBA16F, GL_NEAREST,
                                                   GL_NEAREST, GL_CLAMP_TO_EDGE, GL_RGBA));
     setTexture2D(m_pGlossinessBuffer, new Texture2DGL(width, height, 1, GL_RGBA16F, GL_NEAREST,

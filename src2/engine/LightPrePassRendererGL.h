@@ -162,7 +162,8 @@ class LightPrePassRendererGL
     RenderVisitor* m_pShadowVisitor;
     BlurGL* m_pBlur;
     GLuint m_depthStencilBuffer;
-    // shared: the scripts hand it to materials, which reference count it
+    // a reference counted wrapper in the original as well (0x004e7d90 replaces it on a
+    // resize): the scripts hand it to materials, which hold on to it
     core::SharedPtr<RenderableTextureGL> m_pGeometryBuffer;
     Texture2DGL* m_pNormalBuffer;
     Texture2DGL* m_pGlossinessBuffer;
