@@ -22,9 +22,9 @@ ImmediateModeGL::ImmediateModeGL(RenderContextGL* context)
     m_textureAddress = Material::Wrap;
     glGenVertexArrays(1, &m_vertexArray);
     glBindVertexArray(m_vertexArray);
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(4);
-    glEnableVertexAttribArray(5);
+    glEnableVertexAttribArray(ShaderProgramGL::A_position);
+    glEnableVertexAttribArray(ShaderProgramGL::A_texcoord);
+    glEnableVertexAttribArray(ShaderProgramGL::A_color);
     glBindVertexArray(0);
     im::init(this);
 }
@@ -174,9 +174,9 @@ void ImmediateModeGL::drawInternal(int primitive, const IMVertex* verts, int cou
     offset = m_pContext->getStreamOffset() - count * (int)sizeof(IMVertex);
     memcpy(data, verts, count * sizeof(IMVertex));
     const char* base = (const char*)(intptr_t)offset;
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(IMVertex), base);
-    glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(IMVertex), base + 12);
-    glVertexAttribPointer(5, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(IMVertex), base + 20);
+    glVertexAttribPointer(ShaderProgramGL::A_position, 3, GL_FLOAT, GL_FALSE, sizeof(IMVertex), base);
+    glVertexAttribPointer(ShaderProgramGL::A_texcoord, 2, GL_FLOAT, GL_FALSE, sizeof(IMVertex), base + 12);
+    glVertexAttribPointer(ShaderProgramGL::A_color, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(IMVertex), base + 20);
     m_pContext->streamDrawPrimitive(primitive, count);
 }
 

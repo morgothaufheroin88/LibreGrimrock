@@ -161,7 +161,7 @@ void Mesh::computeVertexNormals()
     for (int s = 0; s < m_segments.size(); ++s)
     {
         const MeshSegment& seg = m_segments[s];
-        if (seg.primitiveType != 2 && seg.primitiveType != 3)
+        if (seg.primitiveType != TriangleList && seg.primitiveType != QuadList)
             continue;
         const int* idx = m_indices.data() + seg.firstIndex;
         int step = seg.primitiveType + 1;
@@ -206,7 +206,7 @@ void Mesh::computeTangentVectors()
     for (int s = 0; s < m_segments.size(); ++s)
     {
         const MeshSegment& seg = m_segments[s];
-        if (seg.primitiveType != 2 && seg.primitiveType != 3)
+        if (seg.primitiveType != TriangleList && seg.primitiveType != QuadList)
             continue;
         const int* idx = m_indices.data() + seg.firstIndex;
         int step = seg.primitiveType + 1;
@@ -272,12 +272,12 @@ void Mesh::flipFaces()
     {
         const MeshSegment& seg = m_segments[s];
         int* idx = m_indices.data() + seg.firstIndex;
-        if (seg.primitiveType == 2)
+        if (seg.primitiveType == TriangleList)
         {
             for (int k = 0; k < seg.numTriangles; ++k, idx += 3)
                 swap(idx[0], idx[1]);
         }
-        else if (seg.primitiveType == 3)
+        else if (seg.primitiveType == QuadList)
         {
             for (int k = 0; k < seg.numTriangles; ++k, idx += 4)
                 swap(idx[0], idx[2]);

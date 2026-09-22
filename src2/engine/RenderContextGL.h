@@ -131,7 +131,21 @@ class ShaderProgramGL
         U_geometryBuffer,
         NumUniforms = 31
     };
-    static constexpr int NumAttributes = 10;
+    // vertex attribute locations, bound by name to the shaders (g_attribNames)
+    enum Attribute
+    {
+        A_position = 0,
+        A_normal,
+        A_tangent,
+        A_bitangent,
+        A_texcoord,
+        A_color,
+        A_boneIndices,
+        A_boneWeights,
+        A_velocity,
+        A_particleParms,
+        NumAttributes
+    };
 
     // 0x004e2000
     ShaderProgramGL(GLuint vertexShader, GLuint fragmentShader);

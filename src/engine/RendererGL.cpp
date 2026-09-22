@@ -555,7 +555,7 @@ void RenderableMeshGL::init(Mesh& mesh, bool keepSourceData)
         const MeshSegment& s = mesh.getSegment(i);
         MeshSegment seg = s;
         seg.primitiveType =
-            s.primitiveType == 2 ? GL_TRIANGLES : (s.primitiveType == 1 ? GL_LINES : GL_POINTS);
+            s.primitiveType == Mesh::TriangleList ? GL_TRIANGLES : (s.primitiveType == Mesh::LineList ? GL_LINES : GL_POINTS);
         m_segments.push_back(seg);
     }
     m_bounds = mesh.getBoundingBox();

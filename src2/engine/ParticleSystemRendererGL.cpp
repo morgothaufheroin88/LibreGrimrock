@@ -39,10 +39,10 @@ ParticleSystemRendererGL::ParticleSystemRendererGL(RenderContextGL* context)
     glDeleteShader(fs);
     glGenVertexArrays(1, &m_vertexArray);
     glBindVertexArray(m_vertexArray);
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(8);
-    glEnableVertexAttribArray(4);
-    glEnableVertexAttribArray(9);
+    glEnableVertexAttribArray(ShaderProgramGL::A_position);
+    glEnableVertexAttribArray(ShaderProgramGL::A_velocity);
+    glEnableVertexAttribArray(ShaderProgramGL::A_texcoord);
+    glEnableVertexAttribArray(ShaderProgramGL::A_particleParms);
     glBindVertexArray(0);
 }
 // 0x004f7030
@@ -150,10 +150,10 @@ void ParticleSystemRendererGL::renderParticleSystem(const Camera& camera,
         if (!out)
             continue;
         const char* base = (const char*)(intptr_t)(m_pContext->getStreamOffset() - bytes);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), base);
-        glVertexAttribPointer(8, 3, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), base + 12);
-        glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), base + 24);
-        glVertexAttribPointer(9, 4, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), base + 32);
+        glVertexAttribPointer(ShaderProgramGL::A_position, 3, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), base);
+        glVertexAttribPointer(ShaderProgramGL::A_velocity, 3, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), base + 12);
+        glVertexAttribPointer(ShaderProgramGL::A_texcoord, 2, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), base + 24);
+        glVertexAttribPointer(ShaderProgramGL::A_particleParms, 4, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), base + 32);
         const Array<Particle>& particles = state->getParticles();
         static constexpr float corners[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
         int written = 0;

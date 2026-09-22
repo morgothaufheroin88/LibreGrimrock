@@ -608,6 +608,64 @@ static inline short packShort(float v)
     return (short)(i < -0x8000 ? -0x8000 : (i > 0x7fff ? 0x7fff : i));
 }
 
+// The range of the texture coordinates, which are stored as 16 bit integers across it: a
+// coordinate is offset + short * scale. A flat range keeps the scale at 1.
+static void getTexcoordQuantization(const Vec2* uv, int count, Vec2& scale, Vec2& offset)
+{
+    Vec2 mn(100000.0f, 100000.0f), mx(-100000.0f, -100000.0f);
+    for (int i = 0; i < count; ++i)
+    {
+        if (uv[i].x <= mn.x)
+            mn.x = uv[i].x;
+        if (uv[i].y <= mn.y)
+            mn.y = uv[i].y;
+        if (uv[i].x >= mx.x)
+            mx.x = uv[i].x;
+        if (uv[i].y >= mx.y)
+            mx.y = uv[i].y;
+    }
+    scale.set((mx.x - mn.x) / 65535.0f, (mx.y - mn.y) / 65535.0f);
+    offset.set(scale.x * 32768.0f + mn.x, scale.y * 32768.0f + mn.y);
+    if (scale.x == 0.0f)
+        scale.x = 1.0f;
+    if (scale.y == 0.0f)
+        scale.y = 1.0f;
+}
+
+// Four bone indices and weights as bytes. The weights stay normalised after the
+// quantisation: the last non-zero one absorbs the rounding error.
+static void packBones(const int* indices, const float* weights, int components,
+                      unsigned char* outIndices, unsigned char* outWeights)
+{
+    int sum = 0;
+    for (int c = 0; c < 4; ++c)
+    {
+        outIndices[c] = c < components ? (unsigned char)indices[c] : 0;
+        int w = c < components ? (int)(weights[c] * 255.0f) : 0;
+        outWeights[c] = (unsigned char)w;
+        sum += outWeights[c];
+    }
+    if (sum != 255)
+    {
+        int last = outWeights[1] != 0 ? 1 : 0;
+        if (outWeights[2] != 0)
+            last = 2;
+        if (outWeights[3] != 0)
+            last = 3;
+        outWeights[last] = (unsigned char)(outWeights[last] + (255 - sum));
+    }
+}
+
+// One attribute of the interleaved vertex; offset -1 = the mesh does not have it.
+static void enableAttribute(ShaderProgramGL::Attribute location, int size, GLenum type, int stride,
+                            int offset)
+{
+    if (offset < 0)
+        return;
+    glEnableVertexAttribArray(location);
+    glVertexAttribPointer(location, size, type, GL_FALSE, stride, (const void*)(intptr_t)offset);
+}
+
 // 0x004e2790
 void RenderableMeshGL::init(Mesh& mesh, bool keepSourceData)
 {
@@ -617,37 +675,41 @@ void RenderableMeshGL::init(Mesh& mesh, bool keepSourceData)
         glDeleteBuffers(1, &m_indexBuffer);
     if (m_vertexArray)
         glDeleteVertexArrays(1, &m_vertexArray);
-    const Vec3* pos = (const Vec3*)mesh.getVertexArray(Mesh::Position, Mesh::TypeFloat, 3);
-    const Vec3* nrm = (const Vec3*)mesh.getVertexArray(Mesh::Normal, Mesh::TypeFloat, 3);
-    const Vec3* tan = (const Vec3*)mesh.getVertexArray(Mesh::Tangent, Mesh::TypeFloat, 3);
-    const Vec3* bit = (const Vec3*)mesh.getVertexArray(Mesh::Bitangent, Mesh::TypeFloat, 3);
-    const Vec2* uv = (const Vec2*)mesh.getVertexArray(Mesh::Texcoord0, Mesh::TypeFloat, 2);
-    const unsigned char* col =
+    const Vec3* positions = (const Vec3*)mesh.getVertexArray(Mesh::Position, Mesh::TypeFloat, 3);
+    const Vec3* normals = (const Vec3*)mesh.getVertexArray(Mesh::Normal, Mesh::TypeFloat, 3);
+    const Vec3* tangents = (const Vec3*)mesh.getVertexArray(Mesh::Tangent, Mesh::TypeFloat, 3);
+    const Vec3* bitangents = (const Vec3*)mesh.getVertexArray(Mesh::Bitangent, Mesh::TypeFloat, 3);
+    const Vec2* texcoords = (const Vec2*)mesh.getVertexArray(Mesh::Texcoord0, Mesh::TypeFloat, 2);
+    const unsigned char* colors =
         (const unsigned char*)mesh.getVertexArray(Mesh::Color, Mesh::TypeByte, 4);
-    const int* boneIdx = (const int*)mesh.getVertexArray(Mesh::BoneIndices, Mesh::TypeInt, -1);
-    const float* boneW = (const float*)mesh.getVertexArray(Mesh::BoneWeights, Mesh::TypeFloat, -1);
+    const int* boneIndices = (const int*)mesh.getVertexArray(Mesh::BoneIndices, Mesh::TypeInt, -1);
+    const float* boneWeights =
+        (const float*)mesh.getVertexArray(Mesh::BoneWeights, Mesh::TypeFloat, -1);
     int boneComponents = mesh.getVertexArrayInfo(Mesh::BoneIndices).components;
-    m_skinned = boneIdx && boneW && boneComponents > 0;
+    m_skinned = boneIndices && boneWeights && boneComponents > 0;
     m_numVertices = mesh.getNumVertices();
+
+    // the interleaved layout: a float position, then 4 bytes per attribute the mesh has
+    // (the texture coordinates as two shorts)
     m_normalOffset = m_tangentOffset = m_texcoordOffset_ = m_colorOffset = -1;
     m_boneIndicesOffset = m_boneWeightsOffset = -1;
     int stride = 12;
-    if (nrm)
+    if (normals)
     {
-        m_normalOffset = 12;
-        stride = 16;
+        m_normalOffset = stride;
+        stride += 4;
     }
-    if (tan)
+    if (tangents)
     {
         m_tangentOffset = stride;
         stride += 4;
     }
-    if (uv)
+    if (texcoords)
     {
         m_texcoordOffset_ = stride;
         stride += 4;
     }
-    if (col)
+    if (colors)
     {
         m_colorOffset = stride;
         stride += 4;
@@ -659,93 +721,55 @@ void RenderableMeshGL::init(Mesh& mesh, bool keepSourceData)
         stride += 8;
     }
     m_stride = stride;
-    // texture coordinates are quantised to 16 bits over their range
     m_texcoordScale.set(1.0f, 1.0f);
     m_texcoordOffset.set(0.0f, 0.0f);
-    if (uv)
-    {
-        Vec2 mn(100000.0f, 100000.0f), mx(-100000.0f, -100000.0f);
-        for (int i = 0; i < m_numVertices; ++i)
-        {
-            if (uv[i].x <= mn.x)
-                mn.x = uv[i].x;
-            if (uv[i].y <= mn.y)
-                mn.y = uv[i].y;
-            if (uv[i].x >= mx.x)
-                mx.x = uv[i].x;
-            if (uv[i].y >= mx.y)
-                mx.y = uv[i].y;
-        }
-        m_texcoordScale.set((mx.x - mn.x) / 65535.0f, (mx.y - mn.y) / 65535.0f);
-        m_texcoordOffset.set(m_texcoordScale.x * 32768.0f + mn.x,
-                             m_texcoordScale.y * 32768.0f + mn.y);
-        if (m_texcoordScale.x == 0.0f)
-            m_texcoordScale.x = 1.0f;
-        if (m_texcoordScale.y == 0.0f)
-            m_texcoordScale.y = 1.0f;
-    }
+    if (texcoords)
+        getTexcoordQuantization(texcoords, m_numVertices, m_texcoordScale, m_texcoordOffset);
+
     glGenBuffers(1, &m_vertexBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)m_numVertices * stride, 0, GL_STATIC_DRAW);
-    char* out = (char*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+    char* vertices = (char*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
     for (int i = 0; i < m_numVertices; ++i)
     {
-        char* v = out + i * stride;
-        memcpy(v, &pos[i], 12);
-        if (nrm)
+        char* vertex = vertices + i * stride;
+        memcpy(vertex, &positions[i], 12);
+        if (normals)
         {
-            unsigned char* n = (unsigned char*)(v + m_normalOffset);
-            n[0] = packUnitByte(nrm[i].x);
-            n[1] = packUnitByte(nrm[i].y);
-            n[2] = packUnitByte(nrm[i].z);
+            unsigned char* n = (unsigned char*)(vertex + m_normalOffset);
+            n[0] = packUnitByte(normals[i].x);
+            n[1] = packUnitByte(normals[i].y);
+            n[2] = packUnitByte(normals[i].z);
             n[3] = 0;
         }
-        if (tan && bit)
+        if (tangents && bitangents)
         {
-            // handedness from the bitangent
-            float w = dot(cross(nrm[i], tan[i]), bit[i]) < 0.0f ? -1.0f : 1.0f;
-            unsigned char* t = (unsigned char*)(v + m_tangentOffset);
-            t[0] = packUnitByte(tan[i].x);
-            t[1] = packUnitByte(tan[i].y);
-            t[2] = packUnitByte(tan[i].z);
-            t[3] = packUnitByte(w);
+            // the handedness of the tangent frame goes into w
+            float handedness =
+                dot(cross(normals[i], tangents[i]), bitangents[i]) < 0.0f ? -1.0f : 1.0f;
+            unsigned char* t = (unsigned char*)(vertex + m_tangentOffset);
+            t[0] = packUnitByte(tangents[i].x);
+            t[1] = packUnitByte(tangents[i].y);
+            t[2] = packUnitByte(tangents[i].z);
+            t[3] = packUnitByte(handedness);
         }
-        if (uv)
+        if (texcoords)
         {
-            short* t = (short*)(v + m_texcoordOffset_);
-            t[0] = packShort((uv[i].x - m_texcoordOffset.x) / m_texcoordScale.x);
-            t[1] = packShort((uv[i].y - m_texcoordOffset.y) / m_texcoordScale.y);
+            short* t = (short*)(vertex + m_texcoordOffset_);
+            t[0] = packShort((texcoords[i].x - m_texcoordOffset.x) / m_texcoordScale.x);
+            t[1] = packShort((texcoords[i].y - m_texcoordOffset.y) / m_texcoordScale.y);
         }
-        if (col)
-            memcpy(v + m_colorOffset, col + i * 4, 4);
+        if (colors)
+            memcpy(vertex + m_colorOffset, colors + i * 4, 4);
         if (m_skinned)
-        {
-            unsigned char* bi = (unsigned char*)(v + m_boneIndicesOffset);
-            unsigned char* bw = (unsigned char*)(v + m_boneWeightsOffset);
-            int sum = 0;
-            for (int c = 0; c < 4; ++c)
-            {
-                bi[c] = c < boneComponents ? (unsigned char)boneIdx[i * boneComponents + c] : 0;
-                int w = c < boneComponents ? (int)(boneW[i * boneComponents + c] * 255.0f) : 0;
-                bw[c] = (unsigned char)w;
-                sum += bw[c];
-            }
-            // keep the weights normalised after quantisation: the last non-zero weight
-            // absorbs the rounding error
-            if (sum != 255)
-            {
-                int last = bw[1] != 0 ? 1 : 0;
-                if (bw[2] != 0)
-                    last = 2;
-                if (bw[3] != 0)
-                    last = 3;
-                bw[last] = (unsigned char)(bw[last] + (255 - sum));
-            }
-        }
+            packBones(boneIndices + i * boneComponents, boneWeights + i * boneComponents,
+                      boneComponents, (unsigned char*)(vertex + m_boneIndicesOffset),
+                      (unsigned char*)(vertex + m_boneWeightsOffset));
     }
     glUnmapBuffer(GL_ARRAY_BUFFER);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+    // 16 bit indices when the vertices allow it
     const Array<int>& indices = mesh.getIndices();
     m_numIndices = indices.size();
     m_indexSize = m_numVertices > 0xffff ? 4 : 2;
@@ -756,9 +780,9 @@ void RenderableMeshGL::init(Mesh& mesh, bool keepSourceData)
     void* indexData = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
     if (m_indexSize == 2)
     {
-        unsigned short* p = (unsigned short*)indexData;
+        unsigned short* shortIndices = (unsigned short*)indexData;
         for (int i = 0; i < m_numIndices; ++i)
-            p[i] = (unsigned short)indices[i];
+            shortIndices[i] = (unsigned short)indices[i];
     }
     else
     {
@@ -770,14 +794,15 @@ void RenderableMeshGL::init(Mesh& mesh, bool keepSourceData)
     m_segments.clear();
     for (int i = 0; i < mesh.getNumSegments(); ++i)
     {
-        const MeshSegment& src = mesh.getSegment(i);
-        Segment s;
-        s.material = src.material;
-        s.mode =
-            src.primitiveType == 2 ? GL_TRIANGLES : (src.primitiveType == 1 ? GL_LINES : GL_POINTS);
-        s.firstIndex = src.firstIndex;
-        s.primitiveCount = src.numTriangles;
-        m_segments.push_back(s);
+        const MeshSegment& source = mesh.getSegment(i);
+        Segment segment;
+        segment.material = source.material;
+        segment.mode = source.primitiveType == Mesh::TriangleList
+                           ? GL_TRIANGLES
+                           : (source.primitiveType == Mesh::LineList ? GL_LINES : GL_POINTS);
+        segment.firstIndex = source.firstIndex;
+        segment.primitiveCount = source.numTriangles;
+        m_segments.push_back(segment);
     }
     m_bounds = mesh.getBoundingBox();
     m_sourceData.reset(keepSourceData ? new Mesh(mesh) : 0);
@@ -786,41 +811,15 @@ void RenderableMeshGL::init(Mesh& mesh, bool keepSourceData)
     glBindVertexArray(m_vertexArray);
     glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, m_stride, 0);
-    if (m_normalOffset >= 0)
-    {
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_FALSE, m_stride,
-                              (const void*)(intptr_t)m_normalOffset);
-    }
-    if (m_tangentOffset >= 0)
-    {
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_FALSE, m_stride,
-                              (const void*)(intptr_t)m_tangentOffset);
-    }
-    if (m_texcoordOffset_ >= 0)
-    {
-        glEnableVertexAttribArray(4);
-        glVertexAttribPointer(4, 2, GL_SHORT, GL_FALSE, m_stride,
-                              (const void*)(intptr_t)m_texcoordOffset_);
-    }
-    if (m_colorOffset >= 0)
-    {
-        glEnableVertexAttribArray(5);
-        glVertexAttribPointer(5, 4, GL_UNSIGNED_BYTE, GL_FALSE, m_stride,
-                              (const void*)(intptr_t)m_colorOffset);
-    }
-    if (m_skinned)
-    {
-        glEnableVertexAttribArray(6);
-        glVertexAttribPointer(6, 4, GL_UNSIGNED_BYTE, GL_FALSE, m_stride,
-                              (const void*)(intptr_t)m_boneIndicesOffset);
-        glEnableVertexAttribArray(7);
-        glVertexAttribPointer(7, 4, GL_UNSIGNED_BYTE, GL_FALSE, m_stride,
-                              (const void*)(intptr_t)m_boneWeightsOffset);
-    }
+    enableAttribute(ShaderProgramGL::A_position, 3, GL_FLOAT, m_stride, 0);
+    enableAttribute(ShaderProgramGL::A_normal, 4, GL_UNSIGNED_BYTE, m_stride, m_normalOffset);
+    enableAttribute(ShaderProgramGL::A_tangent, 4, GL_UNSIGNED_BYTE, m_stride, m_tangentOffset);
+    enableAttribute(ShaderProgramGL::A_texcoord, 2, GL_SHORT, m_stride, m_texcoordOffset_);
+    enableAttribute(ShaderProgramGL::A_color, 4, GL_UNSIGNED_BYTE, m_stride, m_colorOffset);
+    enableAttribute(ShaderProgramGL::A_boneIndices, 4, GL_UNSIGNED_BYTE, m_stride,
+                    m_boneIndicesOffset);
+    enableAttribute(ShaderProgramGL::A_boneWeights, 4, GL_UNSIGNED_BYTE, m_stride,
+                    m_boneWeightsOffset);
     glBindVertexArray(0);
 }
 // 0x004e3370 (bounds) and the base accessors

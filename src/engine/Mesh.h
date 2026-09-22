@@ -16,7 +16,7 @@ class Material;
 struct MeshSegment
 {
     core::SharedPtr<Material> material;
-    int primitiveType; // 2 = triangle list
+    int primitiveType; // Mesh::PrimitiveType
     int firstIndex;
     int numTriangles;
 };
@@ -44,9 +44,14 @@ class Mesh
         TypeInt = 2,
         TypeFloat = 3
     };
+    // MeshSegment::primitiveType, the order of Mesh.addSegment's names; a primitive has
+    // primitiveType + 1 indices
     enum PrimitiveType
     {
-        TriangleList = 2
+        PointList = 0,
+        LineList = 1,
+        TriangleList = 2,
+        QuadList = 3
     };
 
     struct VertexArray

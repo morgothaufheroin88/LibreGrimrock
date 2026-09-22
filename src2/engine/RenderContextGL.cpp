@@ -334,8 +334,8 @@ void RenderContextGL::contextCreated()
     glGenVertexArrays(1, &m_rectVertexArray);
     glBindVertexArray(m_rectVertexArray);
     glBindBuffer(GL_ARRAY_BUFFER, m_rectBuffer);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8, 0);
+    glEnableVertexAttribArray(ShaderProgramGL::A_position);
+    glVertexAttribPointer(ShaderProgramGL::A_position, 2, GL_FLOAT, GL_FALSE, 8, 0);
     glBindVertexArray(0);
 }
 // 0x004e13c0
