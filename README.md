@@ -158,6 +158,10 @@ After that the game starts from the Steam client as usual, with the overlay,
 achievements, cloud saves and workshop working. Steam's *Verify integrity of
 game files* restores the original binary; run the script again afterwards.
 
+`tools/deploy_steam2.sh [game dir]` does the same for the second game. It has
+no Linux depot, so the Windows executable is left alone and `grimrock2` is
+added next to it, together with the icon taken out of `grimrock2.exe`.
+
 ## Compatibility changes
 
 The reconstruction follows the original compilation units, class layouts and
@@ -226,7 +230,14 @@ range, or from the `// 0x...` comments of a reconstructed source),
 `missing_bindings.py` and `diff_binding_bodies.py` compare the Lua surface with
 ours, and `coverage2.py` lists the functions of a region that no source claims
 (it leaves out the Direct3D 9 and XAudio2 back ends and counts a function as
-reconstructed when a source claims its first-game counterpart).
+reconstructed when a source claims its first-game counterpart). Three checkers
+read the reconstruction against the pseudocode of the address each function
+claims: `stubcheck2.py` reports the strings and GL calls the original uses and
+ours does not, `constcheck2.py` the float literals, and `enumcheck2.py`
+compares the `luax::Enum` tables of the sources with the ones recovered from
+the binary (names and order, which is what the scripts pass and the engine
+stores). `icon.py` writes the window icon out of the executable's resources as
+`grimrock2.png`, which the Linux build loads instead of calling LoadIcon.
 
 Debugging aids (all off by default): `GRIMROCK_CAPTURE_DIR=<dir>` saves the next
 frame to `<dir>/capture.png` when `<dir>/take` exists

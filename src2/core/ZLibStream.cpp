@@ -11,8 +11,9 @@ ZLibDecompressorInputStream::ZLibDecompressorInputStream(InputStream* host)
     : m_pHost(host), m_position(0), m_done(false)
 {
     memset(&m_stream, 0, sizeof(m_stream));
-    if (inflateInit(&m_stream) != Z_OK)
-        throw Exception("inflateInit failed");
+    int result = inflateInit(&m_stream);
+    if (result != Z_OK)
+        throw Exception("inflateInit failed (%d)", result);
 }
 ZLibDecompressorInputStream::~ZLibDecompressorInputStream()
 {
