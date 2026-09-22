@@ -209,6 +209,47 @@ void RenderableTextureGL::init(const Image& image)
     glGenerateMipmap(GL_TEXTURE_2D);
     checkGLErrors("glGenerateMipmap");
 }
+// The GL format of a DDS surface format, in its sRGB variant when the texture holds
+// colours; the uncompressed formats are stored as BGRA and swizzled on upload.
+static GLenum getTextureFormat(int ddsFormat, bool srgb, const char* filename)
+{
+    switch (ddsFormat)
+    {
+    case DDSLoader::FormatDXT1:
+        return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT : GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
+    case DDSLoader::FormatDXT3:
+        return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT : GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
+    case DDSLoader::FormatDXT5:
+        return srgb ? GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+    case DDSLoader::FormatA8R8G8B8:
+        return srgb ? GL_SRGB_ALPHA : GL_RGBA;
+    case DDSLoader::FormatX8R8G8B8:
+        return srgb ? GL_SRGB : GL_RGB;
+    case DDSLoader::FormatA16B16G16R16F:
+        return GL_RGBA16F;
+    default:
+        throw Exception("Unsupported texture format (%d) in file %s", ddsFormat, filename);
+    }
+}
+static bool isUncompressed(GLenum format)
+{
+    return format == GL_RGBA || format == GL_RGB || format == GL_SRGB || format == GL_SRGB_ALPHA;
+}
+// DDS stores 8 bit colour as BGRA
+static void swapRedAndBlue(unsigned char* pixels, int count)
+{
+    for (int i = 0; i < count; ++i)
+    {
+        unsigned char blue = pixels[i * 4];
+        pixels[i * 4] = pixels[i * 4 + 2];
+        pixels[i * 4 + 2] = blue;
+    }
+}
+static int nextMipSize(int size)
+{
+    return size / 2 > 0 ? size / 2 : 1;
+}
+
 // 0x004e36f0: 2D and volume textures; the mip filter follows the renderer's texture
 // filter setting.
 void RenderableTextureGL::load(const char* filename, int skipMipLevels, bool srgb)
@@ -235,77 +276,29 @@ void RenderableTextureGL::load(const char* filename, int skipMipLevels, bool srg
                            filename, mipLevels, required);
         }
     }
-    GLenum format;
-    switch (dds.getFormat())
-    {
-    case DDSLoader::FormatDXT1:
-        format = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
-        break;
-    case DDSLoader::FormatDXT3:
-        format = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
-        break;
-    case DDSLoader::FormatDXT5:
-        format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-        break;
-    case DDSLoader::FormatA8R8G8B8:
-        format = GL_RGBA;
-        break;
-    case DDSLoader::FormatX8R8G8B8:
-        format = GL_RGB;
-        break;
-    case DDSLoader::FormatA16B16G16R16F:
-        format = GL_RGBA16F;
-        break;
-    default:
-        throw Exception("Unsupported texture format (%d) in file %s", dds.getFormat(), filename);
-    }
-    if (srgb)
-    {
-        switch (format)
-        {
-        case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
-            format = GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT;
-            break;
-        case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
-            format = GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT;
-            break;
-        case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
-            format = GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT;
-            break;
-        case GL_RGBA:
-            format = GL_SRGB_ALPHA;
-            break;
-        case GL_RGB:
-            format = GL_SRGB;
-            break;
-        }
-    }
-    // only drop mip levels of big enough textures
+    GLenum format = getTextureFormat(dds.getFormat(), srgb, filename);
+    // the texture resolution setting drops the top mip levels of textures that are big
+    // enough to have them to spare
     if (dds.getType() == DDSLoader::Texture2D && skipMipLevels > 0)
     {
         if (width < 64 || height < 64 || mipLevels < 3)
             skipMipLevels = 0;
-        if (skipMipLevels > 0)
+        mipLevels -= skipMipLevels;
+        for (int i = 0; i < skipMipLevels; ++i)
         {
-            mipLevels -= skipMipLevels;
-            for (int i = 0; i < skipMipLevels; ++i)
-            {
-                width /= 2;
-                height /= 2;
-            }
+            width /= 2;
+            height /= 2;
         }
     }
     int textureFilter = Renderer::getActiveRenderer()->m_textureFilter;
     GLint minFilter = GL_LINEAR;
     if (mipLevels >= 2)
         minFilter = textureFilter > 0 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR_MIPMAP_NEAREST;
-    bool uncompressed =
-        format == GL_RGBA || format == GL_RGB || format == GL_SRGB || format == GL_SRGB_ALPHA;
+
     if (dds.getType() == DDSLoader::Texture2D)
     {
-        Texture2DGL* t = new Texture2DGL(width, height, mipLevels, format, minFilter, GL_LINEAR,
-                                         GL_REPEAT, GL_RGBA);
-        setTexture(t);
+        setTexture(new Texture2DGL(width, height, mipLevels, format, minFilter, GL_LINEAR,
+                                   GL_REPEAT, GL_RGBA));
         if (textureFilter == Renderer::TextureFilter_Anisotropic && mipLevels > 1 &&
             RenderContextGL::getMaxAnisotropy() > 0.0f)
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT,
@@ -321,14 +314,9 @@ void RenderableTextureGL::load(const char* filename, int skipMipLevels, bool srg
                              GL_HALF_FLOAT, data);
                 checkGLErrors("glTexImage2D");
             }
-            else if (uncompressed)
+            else if (isUncompressed(format))
             {
-                for (int i = 0; i < width * height; ++i)
-                {
-                    unsigned char tmp = data[i * 4];
-                    data[i * 4] = data[i * 4 + 2];
-                    data[i * 4 + 2] = tmp;
-                }
+                swapRedAndBlue(data, width * height);
                 glTexImage2D(GL_TEXTURE_2D, level, format, width, height, 0, GL_RGBA,
                              GL_UNSIGNED_BYTE, data);
                 checkGLErrors("glTexImage2D");
@@ -339,15 +327,14 @@ void RenderableTextureGL::load(const char* filename, int skipMipLevels, bool srg
                 checkGLErrors("glCompressedTexImage2D");
             }
             delete[] data;
-            width = width / 2 > 0 ? width / 2 : 1;
-            height = height / 2 > 0 ? height / 2 : 1;
+            width = nextMipSize(width);
+            height = nextMipSize(height);
         }
     }
     else if (dds.getType() == DDSLoader::Texture3D)
     {
-        Texture3DGL* t = new Texture3DGL(width, height, depth, mipLevels, format, minFilter,
-                                         GL_LINEAR, GL_REPEAT, GL_RGBA);
-        setTexture(t);
+        setTexture(new Texture3DGL(width, height, depth, mipLevels, format, minFilter, GL_LINEAR,
+                                   GL_REPEAT, GL_RGBA));
         for (int level = 0; level < mipLevels; ++level)
         {
             int size = dds.getSurfaceSize(level + skipMipLevels);
@@ -359,14 +346,9 @@ void RenderableTextureGL::load(const char* filename, int skipMipLevels, bool srg
                              GL_HALF_FLOAT, data);
                 checkGLErrors("glTexImage3D");
             }
-            else if (uncompressed)
+            else if (isUncompressed(format))
             {
-                for (int i = 0; i < width * height * depth; ++i)
-                {
-                    unsigned char tmp = data[i * 4];
-                    data[i * 4] = data[i * 4 + 2];
-                    data[i * 4 + 2] = tmp;
-                }
+                swapRedAndBlue(data, width * height * depth);
                 glTexImage3D(GL_TEXTURE_3D, level, format, width, height, depth, 0, GL_RGBA,
                              GL_UNSIGNED_BYTE, data);
                 checkGLErrors("glTexImage3D");
@@ -378,9 +360,9 @@ void RenderableTextureGL::load(const char* filename, int skipMipLevels, bool srg
                 checkGLErrors("glCompressedTexImage3D");
             }
             delete[] data;
-            width = width / 2 > 0 ? width / 2 : 1;
-            height = height / 2 > 0 ? height / 2 : 1;
-            depth = depth / 2 > 0 ? depth / 2 : 1;
+            width = nextMipSize(width);
+            height = nextMipSize(height);
+            depth = nextMipSize(depth);
         }
     }
     else
