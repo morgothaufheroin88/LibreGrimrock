@@ -121,8 +121,7 @@ void ScreenSpaceAmbientOcclusionGL::prepareDepth(Texture2DGL* geometryBuffer)
     m_pContext->setRenderTarget(m_pDepthBuffer, 0, 0, 0);
     m_pContext->useProgram(m_pPrepareDepthProgram);
     m_pContext->setUniformTexture("g_geometryBuffer", geometryBuffer, -1, -1, 0);
-    glUniform2f(glGetUniformLocation(m_pPrepareDepthProgram->getProgram(), "g_invScreenSize"),
-                1.0f / m_width, 1.0f / m_height);
+    m_pPrepareDepthProgram->setUniform("g_invScreenSize", Vec2(1.0f / m_width, 1.0f / m_height));
     m_pContext->drawRect();
 }
 // 0x004f09e0
@@ -157,19 +156,16 @@ void ScreenSpaceAmbientOcclusionGL::render(const Camera& camera, Texture2DGL* ge
     m_pContext->setRenderTarget(m_pOcclusionBuffer, 0, 0, 0);
     ShaderProgramGL* prog = quality > 0 ? m_pOcclusionHQProgram : m_pOcclusionProgram;
     m_pContext->useProgram(prog);
-    GLuint program = prog->getProgram();
     m_pContext->setUniformTexture("g_geometryBuffer", geometryBuffer, -1, -1, 0);
     m_pContext->setUniformTexture("g_depthBuffer", m_pDepthBuffer, -1, -1, 1);
     m_pContext->setUniformTexture("g_rotTex", m_pRotTexture, -1, -1, 2);
-    glUniformMatrix4fv(glGetUniformLocation(program, "g_invProjectionMatrix"), 1, GL_FALSE,
-                       invProj.m);
-    glUniform1f(glGetUniformLocation(program, "g_invNear"), 1.0f / camera.getNear());
-    glUniform2fv(glGetUniformLocation(program, "g_samples"), NumSamples, &samples[0][0]);
-    glUniform1f(glGetUniformLocation(program, "g_pixRadius"), SampleRadiusPixels);
-    glUniform2f(glGetUniformLocation(program, "g_screenToView"), (bx - ax) / m_width,
-                (ay - by) / m_height);
-    glUniform2f(glGetUniformLocation(program, "g_invScreenSize"), 1.0f / m_width, 1.0f / m_height);
-    glUniform1f(glGetUniformLocation(program, "g_ssaoIntensity"), intensity + intensity);
+    prog->setUniform("g_invProjectionMatrix", invProj);
+    prog->setUniform("g_invNear", 1.0f / camera.getNear());
+    prog->setUniform2v("g_samples", &samples[0][0], NumSamples);
+    prog->setUniform("g_pixRadius", SampleRadiusPixels);
+    prog->setUniform("g_screenToView", Vec2((bx - ax) / m_width, (ay - by) / m_height));
+    prog->setUniform("g_invScreenSize", Vec2(1.0f / m_width, 1.0f / m_height));
+    prog->setUniform("g_ssaoIntensity", intensity + intensity);
     m_pContext->drawRect();
 
     // separable blur, the second pass modulates the target
@@ -179,21 +175,17 @@ void ScreenSpaceAmbientOcclusionGL::render(const Camera& camera, Texture2DGL* ge
     m_pContext->setRenderTarget(m_pBlurBuffer, 0, 0, 0);
     m_pContext->useProgram(m_pBlurXProgram);
     m_pContext->setUniformTexture("g_ssaoBuffer", m_pOcclusionBuffer, -1, -1, 0);
-    glUniform1f(glGetUniformLocation(m_pBlurXProgram->getProgram(), "g_threshold"),
-                BlurDepthThreshold);
-    glUniform2fv(glGetUniformLocation(m_pBlurXProgram->getProgram(), "g_offset"), 4, offsetX);
-    glUniform2f(glGetUniformLocation(m_pBlurXProgram->getProgram(), "g_invScreenSize"),
-                1.0f / m_width, 1.0f / m_height);
+    m_pBlurXProgram->setUniform("g_threshold", BlurDepthThreshold);
+    m_pBlurXProgram->setUniform2v("g_offset", offsetX, 4);
+    m_pBlurXProgram->setUniform("g_invScreenSize", Vec2(1.0f / m_width, 1.0f / m_height));
     m_pContext->drawRect();
 
     m_pContext->setRenderTarget(target, 0, 0, 0);
     m_pContext->useProgram(m_pBlurYProgram);
     m_pContext->setUniformTexture("g_ssaoBuffer", m_pBlurBuffer, -1, -1, 0);
-    glUniform1f(glGetUniformLocation(m_pBlurYProgram->getProgram(), "g_threshold"),
-                BlurDepthThreshold);
-    glUniform2fv(glGetUniformLocation(m_pBlurYProgram->getProgram(), "g_offset"), 4, offsetY);
-    glUniform2f(glGetUniformLocation(m_pBlurYProgram->getProgram(), "g_invScreenSize"),
-                1.0f / m_width, 1.0f / m_height);
+    m_pBlurYProgram->setUniform("g_threshold", BlurDepthThreshold);
+    m_pBlurYProgram->setUniform2v("g_offset", offsetY, 4);
+    m_pBlurYProgram->setUniform("g_invScreenSize", Vec2(1.0f / m_width, 1.0f / m_height));
     m_pContext->setBlendMode(RenderContextGL::Blend_Modulative);
     m_pContext->drawRect();
 }
@@ -270,23 +262,20 @@ void FogFilterGL::render(Texture2DGL* geometryBuffer, Texture2DGL* target)
         break;
     }
     m_pContext->useProgram(prog);
-    GLuint program = prog->getProgram();
     const Camera& camera = *m_pContext->getCamera();
     m_pContext->setUniformTexture("g_depthBuffer", geometryBuffer, -1, -1, 0);
-    glUniformMatrix4fv(glGetUniformLocation(program, "g_invProjectionMatrix"), 1, GL_FALSE,
-                       camera.getInverseProjectionMatrix().m);
-    glUniform1f(glGetUniformLocation(program, "g_invNear"), 1.0f / camera.getNear());
-    glUniform1f(glGetUniformLocation(program, "g_far"), camera.getFar());
-    glUniform2f(glGetUniformLocation(program, "g_invScreenSize"), 1.0f / geometryBuffer->getWidth(),
-                1.0f / geometryBuffer->getHeight());
-    glUniform3f(glGetUniformLocation(program, "g_fogColor"), m_fogColor.x, m_fogColor.y,
-                m_fogColor.z);
+    prog->setUniform("g_invProjectionMatrix", camera.getInverseProjectionMatrix());
+    prog->setUniform("g_invNear", 1.0f / camera.getNear());
+    prog->setUniform("g_far", camera.getFar());
+    prog->setUniform("g_invScreenSize",
+                     Vec2(1.0f / geometryBuffer->getWidth(), 1.0f / geometryBuffer->getHeight()));
+    prog->setUniform("g_fogColor", m_fogColor);
     float range = m_fogRange.y - m_fogRange.x;
-    glUniform2f(glGetUniformLocation(program, "g_fogParams"), 1.0f / range, -m_fogRange.x / range);
-    glUniform1f(glGetUniformLocation(program, "g_fogDensity"), -m_fogDensity);
+    prog->setUniform("g_fogParams", Vec2(1.0f / range, -m_fogRange.x / range));
+    prog->setUniform("g_fogDensity", -m_fogDensity);
     // light direction in view space
     Vec3 dir = camera.getWorldToLocalMatrix().rotation().transform(m_fogLightDirection);
-    glUniform3f(glGetUniformLocation(program, "g_lightDirection"), dir.x, dir.y, dir.z);
+    prog->setUniform("g_lightDirection", dir);
     m_pContext->drawRect();
     if (m_particles.size() > 0 && m_particleSize > 0.0f)
         renderParticles(geometryBuffer);
@@ -303,21 +292,19 @@ struct FogParticleVertex
 void FogFilterGL::renderParticles(Texture2DGL* geometryBuffer)
 {
     m_pContext->useProgram(m_pParticleProgram);
-    GLuint program = m_pParticleProgram->getProgram();
     m_pContext->setBlendMode(RenderContextGL::Blend_AdditiveSrcAlpha);
     glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
     const Camera& camera = *m_pContext->getCamera();
     Matrix4x4 view(camera.getWorldToLocalMatrix());
-    glUniformMatrix4fv(glGetUniformLocation(program, "g_modelView"), 1, GL_FALSE, view.m);
+    m_pParticleProgram->setUniform("g_modelView", view);
     Matrix4x4 proj = RenderContextGL::sm_d3dToGLProj * camera.getProjectionMatrix();
-    glUniformMatrix4fv(glGetUniformLocation(program, "g_proj"), 1, GL_FALSE, proj.m);
-    glUniform2f(glGetUniformLocation(program, "g_invScreenSize"), 1.0f / geometryBuffer->getWidth(),
-                1.0f / geometryBuffer->getHeight());
-    glUniform1f(glGetUniformLocation(program, "g_particleSize"), m_particleSize);
-    glUniform3f(glGetUniformLocation(program, "g_particleColor"), m_particleColor.x,
-                m_particleColor.y, m_particleColor.z);
+    m_pParticleProgram->setUniform("g_proj", proj);
+    m_pParticleProgram->setUniform("g_invScreenSize", Vec2(1.0f / geometryBuffer->getWidth(),
+                                                           1.0f / geometryBuffer->getHeight()));
+    m_pParticleProgram->setUniform("g_particleSize", m_particleSize);
+    m_pParticleProgram->setUniform("g_particleColor", m_particleColor);
     m_pContext->setUniformTexture("g_depthBuffer", geometryBuffer, -1, -1, 0);
     RenderableTextureGL* texture = (RenderableTextureGL*)m_particleTexture.get();
     if (!texture)
@@ -374,9 +361,9 @@ void TonemapperGL::render(Texture2DGL* source, Texture2DGL* target)
     m_pContext->setBlendMode(RenderContextGL::Blend_Opaque);
     m_pContext->useProgram(m_pProgram);
     m_pContext->setUniformTexture("g_sourceTex", source, -1, -1, 0);
-    glUniform2f(glGetUniformLocation(m_pProgram->getProgram(), "g_invScreenSize"),
-                1.0f / source->getWidth(), 1.0f / source->getHeight());
-    glUniform1f(glGetUniformLocation(m_pProgram->getProgram(), "g_saturation"), saturation);
+    m_pProgram->setUniform("g_invScreenSize",
+                           Vec2(1.0f / source->getWidth(), 1.0f / source->getHeight()));
+    m_pProgram->setUniform("g_saturation", saturation);
     m_pContext->drawRect();
 }
 
@@ -399,7 +386,6 @@ void WaterRefractionGL::render(Texture2DGL* geometryBuffer, Texture2DGL* frameBu
 {
     m_pContext->setRenderTarget(target, 0, 0, 0);
     m_pContext->useProgram(m_pProgram);
-    GLuint program = m_pProgram->getProgram();
     glDepthMask(GL_FALSE);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
@@ -407,16 +393,13 @@ void WaterRefractionGL::render(Texture2DGL* geometryBuffer, Texture2DGL* frameBu
     const Camera& camera = *m_pContext->getCamera();
     m_pContext->setUniformTexture("g_frameBuffer", frameBuffer, -1, -1, 0);
     m_pContext->setUniformTexture("g_geometryBuffer", geometryBuffer, -1, -1, 1);
-    glUniformMatrix4fv(glGetUniformLocation(program, "g_invProjectionMatrix"), 1, GL_FALSE,
-                       camera.getInverseProjectionMatrix().m);
-    glUniform1f(glGetUniformLocation(program, "g_invNear"), 1.0f / camera.getNear());
+    m_pProgram->setUniform("g_invProjectionMatrix", camera.getInverseProjectionMatrix());
+    m_pProgram->setUniform("g_invNear", 1.0f / camera.getNear());
     Matrix4x4 viewToWorld(camera.getLocalToWorldMatrix());
-    glUniformMatrix4fv(glGetUniformLocation(program, "g_viewToWorldMatrix"), 1, GL_FALSE,
-                       viewToWorld.m);
-    glUniform4f(glGetUniformLocation(program, "g_clippingPlane"), m_clippingPlane.x,
-                m_clippingPlane.y, m_clippingPlane.z, m_clippingPlane.w);
-    glUniform2f(glGetUniformLocation(program, "g_invScreenSize"), 1.0f / geometryBuffer->getWidth(),
-                1.0f / geometryBuffer->getHeight());
+    m_pProgram->setUniform("g_viewToWorldMatrix", viewToWorld);
+    m_pProgram->setUniform("g_clippingPlane", m_clippingPlane);
+    m_pProgram->setUniform("g_invScreenSize", Vec2(1.0f / geometryBuffer->getWidth(),
+                                                   1.0f / geometryBuffer->getHeight()));
     m_pContext->drawRect();
 }
 
@@ -441,7 +424,6 @@ void BlurGL::blur(Texture2DGL* image, Texture2DGL* temp)
     glDisable(GL_STENCIL_TEST);
     m_pContext->setBlendMode(RenderContextGL::Blend_Opaque);
     m_pContext->useProgram(m_pProgram);
-    GLuint program = m_pProgram->getProgram();
     for (int pass = 0; pass < 2; ++pass)
     {
         Texture2DGL* target = pass == 0 ? temp : image;
@@ -456,9 +438,9 @@ void BlurGL::blur(Texture2DGL* image, Texture2DGL* temp)
             taps[i][2] = 1.0f / NumBlurTaps;
         }
         m_pContext->setUniformTexture("g_tex", source, Material::Linear, Material::Clamp, 0);
-        glUniform2f(glGetUniformLocation(program, "g_invTexRes"), 1.0f / image->getWidth(),
-                    1.0f / image->getHeight());
-        glUniform3fv(glGetUniformLocation(program, "g_samples"), NumBlurTaps, &taps[0][0]);
+        m_pProgram->setUniform("g_invTexRes",
+                               Vec2(1.0f / image->getWidth(), 1.0f / image->getHeight()));
+        m_pProgram->setUniform3v("g_samples", &taps[0][0], NumBlurTaps);
         m_pContext->drawRect();
     }
 }

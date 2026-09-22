@@ -152,6 +152,74 @@ class ShaderProgramGL
     {
         return m_registryIndex;
     }
+    // Uniform setters, by cached slot or by name. The original writes
+    // glUniform*(glGetUniformLocation(program, name), ...) out at every call site; these
+    // do the same lookup and the same call, and only exist to keep the renderers readable.
+    void setUniform(Uniform slot, int value) const
+    {
+        glUniform1i(m_uniforms[slot], value);
+    }
+    void setUniform(Uniform slot, float value) const
+    {
+        glUniform1f(m_uniforms[slot], value);
+    }
+    void setUniform(Uniform slot, const core::Vec2& v) const
+    {
+        glUniform2f(m_uniforms[slot], v.x, v.y);
+    }
+    void setUniform(Uniform slot, const core::Vec3& v) const
+    {
+        glUniform3f(m_uniforms[slot], v.x, v.y, v.z);
+    }
+    void setUniform(Uniform slot, const core::Vec4& v) const
+    {
+        glUniform4f(m_uniforms[slot], v.x, v.y, v.z, v.w);
+    }
+    void setUniform(Uniform slot, const core::Matrix4x4& m) const
+    {
+        glUniformMatrix4fv(m_uniforms[slot], 1, GL_FALSE, m.m);
+    }
+    void setUniform3v(Uniform slot, const float* values, int count) const
+    {
+        glUniform3fv(m_uniforms[slot], count, values);
+    }
+    void setUniform4v(Uniform slot, const float* values, int count) const
+    {
+        glUniform4fv(m_uniforms[slot], count, values);
+    }
+    void setUniform(const char* name, float value) const
+    {
+        glUniform1f(glGetUniformLocation(m_program, name), value);
+    }
+    void setUniform(const char* name, const core::Vec2& v) const
+    {
+        glUniform2f(glGetUniformLocation(m_program, name), v.x, v.y);
+    }
+    void setUniform(const char* name, const core::Vec3& v) const
+    {
+        glUniform3f(glGetUniformLocation(m_program, name), v.x, v.y, v.z);
+    }
+    void setUniform(const char* name, const core::Vec4& v) const
+    {
+        glUniform4f(glGetUniformLocation(m_program, name), v.x, v.y, v.z, v.w);
+    }
+    void setUniform(const char* name, const core::Matrix4x4& m) const
+    {
+        glUniformMatrix4fv(glGetUniformLocation(m_program, name), 1, GL_FALSE, m.m);
+    }
+    void setUniform2v(const char* name, const float* values, int count) const
+    {
+        glUniform2fv(glGetUniformLocation(m_program, name), count, values);
+    }
+    void setUniform3v(const char* name, const float* values, int count) const
+    {
+        glUniform3fv(glGetUniformLocation(m_program, name), count, values);
+    }
+    void setUniform4v(const char* name, const float* values, int count) const
+    {
+        glUniform4fv(glGetUniformLocation(m_program, name), count, values);
+    }
+
     // All programs ever linked, for the shader statistics (0x006201b4/0x006201b8).
     static core::Array<ShaderProgramGL*> sm_programs;
 

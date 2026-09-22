@@ -138,7 +138,7 @@ void ImmediateModeGL::drawInternal(int primitive, const IMVertex* verts, int cou
         TextureGL* textureGL = ((RenderableTextureGL*)texture)->getTexture();
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(textureGL->getTarget(), textureGL->getHandle());
-        glUniform1i(m_pContext->getProgram()->getUniform(ShaderProgramGL::U_texture), 0);
+        m_pContext->getProgram()->setUniform(ShaderProgramGL::U_texture, 0);
         m_pContext->setTextureFilterAndWrapMode(textureGL, m_textureFilter, m_textureAddress);
     }
     Matrix4x4 mvp;
@@ -164,8 +164,7 @@ void ImmediateModeGL::drawInternal(int primitive, const IMVertex* verts, int cou
     {
         mvp = RenderContextGL::sm_d3dToGLProj * transform;
     }
-    glUniformMatrix4fv(m_pContext->getProgram()->getUniform(ShaderProgramGL::U_modelViewProj), 1,
-                       GL_FALSE, mvp.m);
+    m_pContext->getProgram()->setUniform(ShaderProgramGL::U_modelViewProj, mvp);
     glBindVertexArray(m_vertexArray);
     int offset = m_pContext->getStreamOffset();
     void* data = m_pContext->streamWrite(count * (int)sizeof(IMVertex));

@@ -532,8 +532,7 @@ void RenderContextGL::setSkinningMatrices(const MeshEntity& entity)
     int numBones = entity.getSkeleton()->getBoneCount();
     if (numBones > 64)
         numBones = 64;
-    glUniform4fv(m_pProgram->getUniform(ShaderProgramGL::U_skinningMatrices), numBones * 3,
-                 skinningMatrices);
+    m_pProgram->setUniform4v(ShaderProgramGL::U_skinningMatrices, skinningMatrices, numBones * 3);
 }
 // 0x004e1430
 void* RenderContextGL::streamWrite(int bytes)

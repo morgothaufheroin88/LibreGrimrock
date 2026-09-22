@@ -319,46 +319,34 @@ void NotebookRendererGL::renderMeshes(const Camera& camera, MeshEntity* const* m
         if (program != currentProgram)
         {
             m_pContext->useProgram(program);
-            GLuint prog = program->getProgram();
-            glUniformMatrix4fv(program->getUniform(ShaderProgramGL::U_proj), 1, GL_FALSE, proj.m);
-            glUniform2f(program->getUniform(ShaderProgramGL::U_invScreenSize), 1.0f / m_width,
-                        1.0f / m_height);
-            glUniform3fv(glGetUniformLocation(prog, "g_vlightColor"), MaxVertexLights,
-                         &m_vlightColor[0].x);
-            glUniform4fv(glGetUniformLocation(prog, "g_vlightPosition"), MaxVertexLights,
-                         &m_vlightPosition[0].x);
-            glUniform3f(program->getUniform(ShaderProgramGL::U_lightColor), m_lightColor.x,
-                        m_lightColor.y, m_lightColor.z);
-            glUniform3f(glGetUniformLocation(prog, "g_lightPosition"), m_lightPosition.x,
-                        m_lightPosition.y, m_lightPosition.z);
-            glUniform1f(program->getUniform(ShaderProgramGL::U_invLightRange), m_invLightRange);
-            glUniform3f(glGetUniformLocation(prog, "g_ambientLight"), m_ambientLight.x,
-                        m_ambientLight.y, m_ambientLight.z);
-            glUniform3f(glGetUniformLocation(prog, "g_dirlightColor"), m_dirlightColor.x,
-                        m_dirlightColor.y, m_dirlightColor.z);
-            glUniform3f(glGetUniformLocation(prog, "g_dirlightDirection"), m_dirlightDirection.x,
-                        m_dirlightDirection.y, m_dirlightDirection.z);
-            glUniform3f(glGetUniformLocation(prog, "g_fogColor"), m_fogColor.x, m_fogColor.y,
-                        m_fogColor.z);
+            program->setUniform(ShaderProgramGL::U_proj, proj);
+            program->setUniform(ShaderProgramGL::U_invScreenSize,
+                                Vec2(1.0f / m_width, 1.0f / m_height));
+            program->setUniform3v("g_vlightColor", &m_vlightColor[0].x, MaxVertexLights);
+            program->setUniform4v("g_vlightPosition", &m_vlightPosition[0].x, MaxVertexLights);
+            program->setUniform(ShaderProgramGL::U_lightColor, m_lightColor);
+            program->setUniform("g_lightPosition", m_lightPosition);
+            program->setUniform(ShaderProgramGL::U_invLightRange, m_invLightRange);
+            program->setUniform("g_ambientLight", m_ambientLight);
+            program->setUniform("g_dirlightColor", m_dirlightColor);
+            program->setUniform("g_dirlightDirection", m_dirlightDirection);
+            program->setUniform("g_fogColor", m_fogColor);
             float range = m_fogEnd - m_fogStart;
-            glUniform2f(glGetUniformLocation(prog, "g_fogRangeParams"), 1.0f / range,
-                        -m_fogStart / range);
+            program->setUniform("g_fogRangeParams", Vec2(1.0f / range, -m_fogStart / range));
             ++g_renderStats.bindShader;
             currentProgram = program;
         }
         Matrix4x4 modelView(camera.getWorldToLocalMatrix() *
                             entity.getNode()->getLocalToWorldMatrix());
-        glUniformMatrix4fv(program->getUniform(ShaderProgramGL::U_modelView), 1, GL_FALSE,
-                           modelView.m);
+        program->setUniform(ShaderProgramGL::U_modelView, modelView);
         if (skinned)
             m_pContext->setSkinningMatrices(entity);
         const Vec3& emissive = entity.getEmissiveColor();
-        glUniform3f(program->getUniform(ShaderProgramGL::U_emissiveColor), emissive.x, emissive.y,
-                    emissive.z);
+        program->setUniform(ShaderProgramGL::U_emissiveColor, emissive);
         Vec4 tso = mesh->getTexcoordScaleOffset();
         const Vec4& mtso = material->getTexcoordScaleOffset();
-        glUniform4f(program->getUniform(ShaderProgramGL::U_texcoordScaleOffset), mtso.x * tso.x,
-                    mtso.y * tso.y, mtso.z + tso.z, mtso.w + tso.w);
+        program->setUniform(ShaderProgramGL::U_texcoordScaleOffset,
+                            Vec4(mtso.x * tso.x, mtso.y * tso.y, mtso.z + tso.z, mtso.w + tso.w));
         if (material != currentMaterial)
         {
             if (material->getDoubleSided())
@@ -366,8 +354,7 @@ void NotebookRendererGL::renderMeshes(const Camera& camera, MeshEntity* const* m
             else
                 glEnable(GL_CULL_FACE);
             m_pContext->setBlendMode(material->getBlendMode());
-            glUniform1f(program->getUniform(ShaderProgramGL::U_glossiness),
-                        material->getGlossiness());
+            program->setUniform(ShaderProgramGL::U_glossiness, material->getGlossiness());
             RenderableTexture* diffuse = material->getDiffuseMap();
             if (!diffuse || !m_diffuseMapping)
                 diffuse = CommonResourcesGL::GrayMap;

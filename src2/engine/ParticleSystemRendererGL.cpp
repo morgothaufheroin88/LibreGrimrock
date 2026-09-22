@@ -108,33 +108,32 @@ void ParticleSystemRendererGL::renderParticleSystem(const Camera& camera,
         Matrix4x4 localToWorld;
         if (emitter->m_objectSpace)
             localToWorld = Matrix4x4(entity.getNode()->getLocalToWorldMatrix());
-        glUniformMatrix4fv(program->getUniform(ShaderProgramGL::U_localToWorld), 1, GL_FALSE,
-                           localToWorld.m);
+        program->setUniform(ShaderProgramGL::U_localToWorld, localToWorld);
         Matrix4x4 view(camera.getWorldToLocalMatrix());
-        glUniformMatrix4fv(program->getUniform(ShaderProgramGL::U_modelView), 1, GL_FALSE, view.m);
+        program->setUniform(ShaderProgramGL::U_modelView, view);
         Matrix4x4 proj =
             RenderContextGL::sm_d3dToGLProj *
             (camera.getUserClipPlaneMask() == 1 ? projection : camera.getProjectionMatrix());
-        glUniformMatrix4fv(program->getUniform(ShaderProgramGL::U_proj), 1, GL_FALSE, proj.m);
-        glUniform3f(program->getUniform(ShaderProgramGL::U_fadeParms), 1.0f / emitter->m_fadeIn,
-                    1.0f / emitter->m_fadeOut, emitter->m_fadeOut);
-        glUniform4f(program->getUniform(ShaderProgramGL::U_textureAnimParms), frameRate,
-                    (float)frameCount, (float)framesPerRow,
-                    (float)frameSize / (float)texture->getWidth());
-        glUniform3f(program->getUniform(ShaderProgramGL::U_gravity), emitter->m_gravity.x,
-                    emitter->m_gravity.y, emitter->m_gravity.z);
-        glUniform1f(program->getUniform(ShaderProgramGL::U_airResistance),
-                    emitter->m_airResistance);
-        glUniform2f(program->getUniform(ShaderProgramGL::U_rotationParams),
-                    emitter->m_rotationSpeed, emitter->m_randomInitialRotation ? TWO_PI : 0.0f);
-        glUniform1f(program->getUniform(ShaderProgramGL::U_clampToGroundPlane),
-                    emitter->m_clampToGroundPlane ? 0.0f : -FLT_MAX);
-        glUniform1f(program->getUniform(ShaderProgramGL::U_depthBias), emitter->m_depthBias);
+        program->setUniform(ShaderProgramGL::U_proj, proj);
+        program->setUniform(
+            ShaderProgramGL::U_fadeParms,
+            Vec3(1.0f / emitter->m_fadeIn, 1.0f / emitter->m_fadeOut, emitter->m_fadeOut));
+        program->setUniform(ShaderProgramGL::U_textureAnimParms,
+                            Vec4(frameRate, (float)frameCount, (float)framesPerRow,
+                                 (float)frameSize / (float)texture->getWidth()));
+        program->setUniform(ShaderProgramGL::U_gravity, emitter->m_gravity);
+        program->setUniform(ShaderProgramGL::U_airResistance, emitter->m_airResistance);
+        program->setUniform(
+            ShaderProgramGL::U_rotationParams,
+            Vec2(emitter->m_rotationSpeed, emitter->m_randomInitialRotation ? TWO_PI : 0.0f));
+        program->setUniform(ShaderProgramGL::U_clampToGroundPlane,
+                            emitter->m_clampToGroundPlane ? 0.0f : -FLT_MAX);
+        program->setUniform(ShaderProgramGL::U_depthBias, emitter->m_depthBias);
         Vec3 colors[4];
         for (int i = 0; i < 4; ++i)
             colors[i] = emitter->m_colorAnimation ? emitter->m_color[i] : emitter->m_color[0];
-        glUniform3fv(program->getUniform(ShaderProgramGL::U_colorTable), 4, &colors[0].x);
-        glUniform1f(program->getUniform(ShaderProgramGL::U_opacity), opacity);
+        program->setUniform3v(ShaderProgramGL::U_colorTable, &colors[0].x, 4);
+        program->setUniform(ShaderProgramGL::U_opacity, opacity);
         RenderableTextureGL* tex =
             (RenderableTextureGL*)(diffuseMapping ? texture : CommonResourcesGL::WhiteMap);
         m_pContext->setUniformTexture(ShaderProgramGL::U_texture, tex->getTexture(), -1,

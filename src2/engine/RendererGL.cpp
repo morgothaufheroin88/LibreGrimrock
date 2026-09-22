@@ -1315,8 +1315,7 @@ void RendererGL::drawBuffer(TextureGL* texture, float scale)
     glDepthMask(GL_FALSE);
     m_pContext->setBlendMode(RenderContextGL::Blend_Opaque);
     m_pContext->useProgram(m_blitProgram.get());
-    glUniform4f(glGetUniformLocation(m_blitProgram->getProgram(), "g_color"), scale, scale, scale,
-                1.0f);
+    m_blitProgram->setUniform("g_color", Vec4(scale, scale, scale, 1.0f));
     m_pContext->setUniformTexture(ShaderProgramGL::U_diffuseMap, texture, -1, -1, 0);
     m_pContext->drawRect();
 }

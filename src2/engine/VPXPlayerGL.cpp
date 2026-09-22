@@ -185,8 +185,7 @@ void VPXPlayerGL::render()
     m_pContext->setUniformTexture("g_texY", m_pTextureY, Material::Linear, Material::Clamp, 0);
     m_pContext->setUniformTexture("g_texU", m_pTextureU, Material::Linear, Material::Clamp, 1);
     m_pContext->setUniformTexture("g_texV", m_pTextureV, Material::Linear, Material::Clamp, 2);
-    glUniform2f(glGetUniformLocation(m_pProgram->getProgram(), "g_texcoordOffset"),
-                0.5f / (float)width, 0.5f / (float)height);
+    m_pProgram->setUniform("g_texcoordOffset", Vec2(0.5f / (float)width, 0.5f / (float)height));
     m_pContext->drawRect();
 }
 
