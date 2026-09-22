@@ -244,6 +244,10 @@ SoundSourceAL::SoundSourceAL(AudioWorldAL* world)
     : m_state(Stopped), m_source(0), m_pWorld(world), m_pStream(0), m_positional(false),
       m_volume(1.0f), m_mute(false), m_minDistance(DefaultMinDistance),
       m_maxDistance(DefaultMaxDistance), m_loop(false)
+#if GRIMROCK_GAME >= 2
+      ,
+      m_pitch(1.0f), m_startSample(0), m_finished(false)
+#endif
 {
 }
 // 0x080f6720
@@ -274,8 +278,39 @@ void SoundSourceAL::play(Sample& sample, bool positional)
     alSourcei(m_source, AL_LOOPING, m_loop);
     alSourcei(m_source, AL_REFERENCE_DISTANCE, (int)lrintf(m_minDistance));
     alSourcei(m_source, AL_MAX_DISTANCE, (int)lrintf(m_maxDistance));
+#if GRIMROCK_GAME >= 2
+    alSourcef(m_source, AL_PITCH, m_pitch);
+    if (m_startSample > 0)
+        alSourcei(m_source, AL_SAMPLE_OFFSET, m_startSample);
+    m_startSample = 0;
+    m_finished = false;
+#endif
     m_state = Starting;
 }
+#if GRIMROCK_GAME >= 2
+// 0x004c7a00: the buffer is played from startSample (XAUDIO2_BUFFER.PlayBegin)
+void SoundSourceAL::play(Sample& sample, bool positional, int startSample)
+{
+    m_startSample = startSample;
+    play(sample, positional);
+}
+// 0x004c6540
+void SoundSourceAL::setPitch(float pitch)
+{
+    m_pitch = pitch;
+    if (m_source)
+        alSourcef(m_source, AL_PITCH, pitch);
+}
+// 0x004c6570: a stopped source that still holds its voice ran to the end by itself
+SoundSource::PlayState SoundSourceAL::getPlayState() const
+{
+    if (m_state == Playing || m_state == Starting)
+        return Play_Playing;
+    if (m_state == Stopped && m_finished)
+        return Play_Finished;
+    return Play_Stopped;
+}
+#endif
 // 0x080f6370
 void SoundSourceAL::playStream(const char* filename)
 {
@@ -378,6 +413,9 @@ void SoundSourceAL::update(AudioListener& listener)
             return;
     }
     m_state = Stopped;
+#if GRIMROCK_GAME >= 2
+    m_finished = true;
+#endif
 }
 // 0x080f5360: distance attenuation between min and max distance.
 void SoundSourceAL::updateVolume(AudioListener& listener)

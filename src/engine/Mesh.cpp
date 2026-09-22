@@ -101,7 +101,11 @@ void Mesh::setIndices(const int* indices, int count)
 MeshSegment& Mesh::addSegment()
 {
     MeshSegment seg;
+#if GRIMROCK_GAME >= 2
+    seg.material.reset(0); // the renderers substitute CommonResourcesGL::DefaultMaterial
+#else
     seg.material = Material::Default;
+#endif
     seg.primitiveType = TriangleList;
     seg.firstIndex = 0;
     seg.numTriangles = 0;
@@ -384,6 +388,36 @@ struct Mesh::SortVertex
         return compareVertex(*mesh, index, o.index) < 0;
     }
 };
+#if GRIMROCK_GAME >= 2
+// 0x004abaf0
+void Mesh::unweldVertices()
+{
+    int numVertices = (m_indices.size() / 3) * 3;
+    for (int a = 0; a < NumVertexArrays; ++a)
+    {
+        VertexArray& array = m_vertexArrays[a];
+        if (!array.pData)
+            continue;
+        unsigned char* data = new unsigned char[(size_t)array.stride * numVertices];
+        for (int i = 0; i < numVertices; ++i)
+            memcpy(data + (size_t)i * array.stride,
+                   (const unsigned char*)array.pData + (size_t)m_indices[i] * array.stride,
+                   array.stride);
+        delete[] (unsigned char*)array.pData;
+        array.pData = data;
+    }
+    for (int i = 0; i < numVertices; ++i)
+        m_indices[i] = i;
+    debugPrint("unweld vertices %d -> %d\n", m_numVertices, numVertices);
+    m_numVertices = numVertices;
+}
+// 0x004adb00
+void Mesh::setMaterial(Material* material)
+{
+    for (int i = 0; i < m_segments.size(); ++i)
+        m_segments[i].material.reset(material);
+}
+#endif
 // 0x080dfec0: sort vertices, collapse equal runs and remap the indices.
 void Mesh::weldVertices()
 {

@@ -12,12 +12,13 @@ namespace core
 class SharedPtrBase
 {
   public:
-    static HashMap<void*, int> sm_refcount;
+    // sm_refcount of the original, kept alive through exit (see SharedPtr.cpp)
+    static HashMap<void*, int>& refcounts();
     static int* acquire(void* object);
     static void release(void* object);
     static int objectCount()
     {
-        return sm_refcount.size();
+        return refcounts().size();
     }
 };
 

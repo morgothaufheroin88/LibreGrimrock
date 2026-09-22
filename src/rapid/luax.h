@@ -103,7 +103,7 @@ template <class T> struct SharedPtrDestructor
     {
         if (!p)
             return;
-        int* rc = core::SharedPtrBase::sm_refcount.findValue(p);
+        int* rc = core::SharedPtrBase::refcounts().findValue(p);
         if (!rc)
             return;
         if (--*rc == 0)
@@ -127,6 +127,10 @@ core::Vec3 checkVector3(lua_State* L, int index);
 // Accepts a vector table or three numbers starting at index.
 core::Vec3 checkVector3_alt(lua_State* L, int index);
 core::Vec4 checkVector4(lua_State* L, int index);
+#if GRIMROCK_GAME >= 2
+// 0x00411150: a vec or four numbers
+core::Vec4 checkVector4_alt(lua_State* L, int index);
+#endif
 core::Color checkColor(lua_State* L, int index);
 core::Matrix3x3 checkMatrix3x3(lua_State* L, int index);
 core::Matrix4x3 checkMatrix4x3(lua_State* L, int index);

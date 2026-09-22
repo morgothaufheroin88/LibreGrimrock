@@ -17,6 +17,9 @@ pkg_check_modules(FREETYPE REQUIRED IMPORTED_TARGET freetype2)
 pkg_check_modules(OPENAL REQUIRED IMPORTED_TARGET openal)
 pkg_check_modules(VORBISFILE REQUIRED IMPORTED_TARGET vorbisfile)
 pkg_check_modules(MINIZIP REQUIRED IMPORTED_TARGET minizip)
+# libvpx decodes the cinematics of Legend of Grimrock 2 (IVF/VP8); without it the
+# second game's video player skips the videos.
+pkg_check_modules(VPX IMPORTED_TARGET vpx)
 
 # LuaJIT 2.0.0-rc3 (tools/fetch_deps.sh builds it into third_party/luajit); a system LuaJIT
 # 2.0.x also loads the game's bytecode, 2.1 does not.
@@ -82,6 +85,10 @@ function(add_game GAME EXE CORE ENGINE CORE_SRC ENGINE_SRC RAPID_SRC INCLUDES)
     target_link_libraries(${ENGINE} PUBLIC ${CORE} OpenGL::GL PkgConfig::GLEW
                           PkgConfig::FREETYPE PkgConfig::OPENAL PkgConfig::VORBISFILE)
     target_compile_options(${ENGINE} PRIVATE -Wall -Wextra -Wno-unused-parameter)
+    if(GAME EQUAL 2 AND VPX_FOUND)
+        target_compile_definitions(${ENGINE} PRIVATE GRIMROCK_HAVE_VPX=1)
+        target_link_libraries(${ENGINE} PUBLIC PkgConfig::VPX)
+    endif()
 
     if(LUAJIT_INCLUDE_DIR AND LUAJIT_LIBRARY)
         add_executable(${EXE} ${RAPID_SRC})

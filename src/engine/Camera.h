@@ -132,6 +132,19 @@ class CameraControls : public core::EventHandler
     {
         m_scale = s;
     }
+#if GRIMROCK_GAME >= 2
+    // 0x004b56f0: disabling also releases the movement keys
+    void setEnableControls(bool enable)
+    {
+        m_enableControls = enable;
+        if (!enable)
+            m_forward = m_backward = m_left = m_right = m_up = m_down = false;
+    }
+    bool getEnableControls() const
+    {
+        return m_enableControls;
+    }
+#endif
 
   private:
     [[maybe_unused]] core::Window* m_pWindow; // kept for the original layout
@@ -142,6 +155,9 @@ class CameraControls : public core::EventHandler
     float m_velForward, m_velStrafe, m_velUp;
     bool m_forward, m_backward, m_left, m_right, m_up, m_down;
     float m_scale;
+#if GRIMROCK_GAME >= 2
+    bool m_enableControls;
+#endif
 };
 
 } // namespace engine

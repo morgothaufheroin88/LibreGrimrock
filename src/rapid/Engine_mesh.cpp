@@ -338,6 +338,41 @@ static int Mesh_weldVertices(lua_State* L)
     luax::checkObject<Mesh>(L, 1)->weldVertices();
     return 0;
 }
+#if GRIMROCK_GAME >= 2
+// 0x00417170
+static int Mesh_unweldVertices(lua_State* L)
+{
+    luax::checkObject<Mesh>(L, 1)->unweldVertices();
+    return 0;
+}
+// 0x004171b0
+static int Mesh_optimizeSegments(lua_State* L)
+{
+    luax::checkObject<Mesh>(L, 1)->optimizeSegments();
+    return 0;
+}
+// 0x004171f0
+static int Mesh_normalizeBoneWeights(lua_State* L)
+{
+    luax::checkObject<Mesh>(L, 1)->normalizeBoneWeights();
+    return 0;
+}
+// 0x004172b0
+static int Mesh_setMaterial(lua_State* L)
+{
+    Mesh* mesh = luax::checkObject<Mesh>(L, 1);
+    mesh->setMaterial(luax::checkObject<Material>(L, 2));
+    return 0;
+}
+// 0x00416250: saveFbx(filename [, scale]); the FBX SDK export of the editor is not
+// reproduced
+static int Mesh_saveFbx(lua_State* L)
+{
+    luax::checkObject<Mesh>(L, 1);
+    luaL_checkstring(L, 2);
+    return luaL_error(L, "FBX export is not supported");
+}
+#endif
 // 0x0814bba0
 static int Mesh_triangulate(lua_State* L)
 {
@@ -379,6 +414,9 @@ const luaL_Reg Mesh_methods[] = {{"create", Mesh_create},
                                  {"createSphere", Mesh_createSphere},
                                  {"createCone", Mesh_createCone},
                                  {"load", Mesh_load},
+#if GRIMROCK_GAME >= 2
+    {"saveFbx", Mesh_saveFbx},
+#endif
                                  {"clone", Mesh_clone},
                                  {"setNumVertices", Mesh_setNumVertices},
                                  {"setVertexArray", Mesh_setVertexArray},
@@ -410,7 +448,15 @@ const luaL_Reg Mesh_methods[] = {{"create", Mesh_create},
                                  {"computeVertexNormals", Mesh_computeVertexNormals},
                                  {"computeTangentVectors", Mesh_computeTangentVectors},
                                  {"weldVertices", Mesh_weldVertices},
+#if GRIMROCK_GAME >= 2
+    {"unweldVertices", Mesh_unweldVertices},
+    {"optimizeSegments", Mesh_optimizeSegments},
+    {"normalizeBoneWeights", Mesh_normalizeBoneWeights},
+#endif
                                  {"triangulate", Mesh_triangulate},
                                  {"flipFaces", Mesh_flipFaces},
+#if GRIMROCK_GAME >= 2
+    {"setMaterial", Mesh_setMaterial},
+#endif
                                  {"raycast", Mesh_raycast},
                                  {0, 0}};

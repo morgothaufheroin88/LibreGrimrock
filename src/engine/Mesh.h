@@ -153,6 +153,12 @@ class Mesh
     static int compareVertex(const Mesh& mesh, int a, int b);
     void weldVertices();
     void optimizeSegments();
+#if GRIMROCK_GAME >= 2
+    // 0x004abaf0: every index gets its own vertex again (the reverse of weldVertices)
+    void unweldVertices();
+    // 0x004adb00: the material of every segment
+    void setMaterial(Material* material);
+#endif
     static bool sortByMaterial(const MeshSegment& a, const MeshSegment& b);
     static Mesh* mergeMeshes(const core::Array<Mesh*>& meshes,
                              const core::Array<core::Matrix4x3>* transforms);

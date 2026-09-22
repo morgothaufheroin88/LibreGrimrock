@@ -42,6 +42,38 @@ static int DebugDraw_drawBox(lua_State* L)
     DebugDraw::drawBox(min, max, m, color);
     return 0;
 }
+#if GRIMROCK_GAME >= 2
+// 0x0041f7f0: drawLine2(a, b [, color]) in screen space
+static int DebugDraw_drawLine2(lua_State* L)
+{
+    Vec2 a = luax::checkVector2(L, 1);
+    Vec2 b = luax::checkVector2(L, 2);
+    Color color = optColor(L, 3);
+    DebugDraw::drawLine(a, b, color);
+    return 0;
+}
+// 0x0041f8d0: drawBox2(min, max [, color])
+static int DebugDraw_drawBox2(lua_State* L)
+{
+    Vec2 min = luax::checkVector2(L, 1);
+    Vec2 max = luax::checkVector2(L, 2);
+    Color color = optColor(L, 3);
+    DebugDraw::drawBox(min, max, color);
+    return 0;
+}
+// 0x0041fb00: drawFrustum(transform, fov, aspect, near, far [, color])
+static int DebugDraw_drawFrustum(lua_State* L)
+{
+    Matrix4x3 m = luax::checkMatrix4x3(L, 1);
+    float fov = (float)luaL_checknumber(L, 2);
+    float aspect = (float)luaL_checknumber(L, 3);
+    float nearZ = (float)luaL_checknumber(L, 4);
+    float farZ = (float)luaL_checknumber(L, 5);
+    Color color = optColor(L, 6);
+    DebugDraw::drawFrustum(m, fov, aspect, nearZ, farZ, color);
+    return 0;
+}
+#endif
 // 0x0813c890: drawSphere(center, radius [, color])
 static int DebugDraw_drawSphere(lua_State* L)
 {
@@ -96,11 +128,21 @@ static int DebugDraw_drawText3D(lua_State* L)
     return 0;
 }
 
+#if GRIMROCK_GAME >= 2
+const luaL_Reg DebugDraw_methods[] = {
+    {"drawLine2", DebugDraw_drawLine2},   {"drawLine3", DebugDraw_drawLine},
+    {"drawBox2", DebugDraw_drawBox2},     {"drawBox3", DebugDraw_drawBox},
+    {"drawSphere", DebugDraw_drawSphere}, {"drawCapsule", DebugDraw_drawCapsule},
+    {"drawFrustum", DebugDraw_drawFrustum}, {"drawBase", DebugDraw_drawBase},
+    {"drawText", DebugDraw_drawText},     {"drawText3D", DebugDraw_drawText3D},
+    {0, 0}};
+#else
 const luaL_Reg DebugDraw_methods[] = {
     {"drawLine", DebugDraw_drawLine},     {"drawBox", DebugDraw_drawBox},
     {"drawSphere", DebugDraw_drawSphere}, {"drawCapsule", DebugDraw_drawCapsule},
     {"drawBase", DebugDraw_drawBase},     {"drawText", DebugDraw_drawText},
     {"drawText3D", DebugDraw_drawText3D}, {0, 0}};
+#endif
 
 // ---- ImmediateMode ---------------------------------------------------------------
 
@@ -135,6 +177,42 @@ static int ImmediateMode_setBlendMode(lua_State* L)
     im::setBlendMode((Material::BlendMode)luax::checkEnum(L, 1, g_blendModes));
     return 0;
 }
+#if GRIMROCK_GAME >= 2
+// 0x0041fd30
+static int ImmediateMode_translate(lua_State* L)
+{
+    im::translate(Vec3((float)luaL_checknumber(L, 1), (float)luaL_checknumber(L, 2),
+                       (float)luaL_checknumber(L, 3)));
+    return 0;
+}
+// 0x0041fd90: rotate(angle, x, y, z)
+static int ImmediateMode_rotate(lua_State* L)
+{
+    float angle = (float)luaL_checknumber(L, 1);
+    im::rotate(angle, Vec3((float)luaL_checknumber(L, 2), (float)luaL_checknumber(L, 3),
+                           (float)luaL_checknumber(L, 4)));
+    return 0;
+}
+// 0x0041fe00
+static int ImmediateMode_scale(lua_State* L)
+{
+    im::scale(Vec3((float)luaL_checknumber(L, 1), (float)luaL_checknumber(L, 2),
+                   (float)luaL_checknumber(L, 3)));
+    return 0;
+}
+// 0x0041fec0
+static int ImmediateMode_setTextureFilterMode(lua_State* L)
+{
+    im::setTextureFilterMode((Material::TextureFilter)luax::checkEnum(L, 1, g_textureFilterModes));
+    return 0;
+}
+// 0x0041fef0
+static int ImmediateMode_setTextureAddressMode(lua_State* L)
+{
+    im::setTextureAddressMode((Material::AddressMode)luax::checkEnum(L, 1, g_textureAddressModes));
+    return 0;
+}
+#endif
 // 0x0813c700
 static int ImmediateMode_clipTo(lua_State* L)
 {
@@ -211,6 +289,63 @@ static int ImmediateMode_drawLine(lua_State* L)
     im::drawLine(x0, y0, x1, y1, color);
     return 0;
 }
+#if GRIMROCK_GAME >= 2
+// 0x00420180: drawLine3D(a, b [, color])
+static int ImmediateMode_drawLine3D(lua_State* L)
+{
+    checkDrawing(L);
+    Vec3 a = luax::checkVector3(L, 1);
+    Vec3 b = luax::checkVector3(L, 2);
+    Color color = optColor(L, 3);
+    im::drawLine(a, b, color);
+    return 0;
+}
+// 0x00420580: drawImageV(texture, pos, size, uv0, uv1, color [, flags]) or
+// drawImageV(texture, pos, size, color [, flags])
+static int ImmediateMode_drawImageV(lua_State* L)
+{
+    checkDrawing(L);
+    int n = lua_gettop(L);
+    if (n > 5)
+    {
+        RenderableTexture* texture = luax::checkObject<RenderableTexture>(L, 1);
+        Vec2 pos = luax::checkVector2(L, 2);
+        Vec2 size = luax::checkVector2(L, 3);
+        Vec2 uv0 = luax::checkVector2(L, 4);
+        Vec2 uv1 = luax::checkVector2(L, 5);
+        Color color = luax::checkColor(L, 6);
+        int flags = n > 6 ? luaL_checkinteger(L, 7) : 0;
+        im::drawImage(*texture, pos, size, uv0, uv1, color, flags);
+        return 0;
+    }
+    if (n > 3)
+    {
+        RenderableTexture* texture = luax::checkObject<RenderableTexture>(L, 1);
+        Vec2 pos = luax::checkVector2(L, 2);
+        Vec2 size = luax::checkVector2(L, 3);
+        Color color = luax::checkColor(L, 4);
+        int flags = n > 4 ? luaL_checkinteger(L, 5) : 0;
+        im::drawImage(*texture, pos, size, color, flags);
+    }
+    return 0;
+}
+// 0x00420810: drawParagraph(text, x, y, width, font [, color]) -> maxLineWidth, endY
+static int ImmediateMode_drawParagraph(lua_State* L)
+{
+    checkDrawing(L);
+    const char* text = luaL_checkstring(L, 1);
+    int x = luaL_checkinteger(L, 2);
+    int y = luaL_checkinteger(L, 3);
+    int width = luaL_checkinteger(L, 4);
+    Font* font = luax::checkObject<Font>(L, 5);
+    Color color = optColor(L, 6);
+    int maxLineWidth = 0, endY = 0;
+    im::drawParagraph(text, x, y, width, font, color, &maxLineWidth, &endY);
+    lua_pushnumber(L, maxLineWidth);
+    lua_pushnumber(L, endY);
+    return 2;
+}
+#endif
 // 0x0813c360
 static int ImmediateMode_drawLineAntialiased(lua_State* L)
 {
@@ -296,10 +431,20 @@ static int ImmediateMode_drawText(lua_State* L)
 {
     checkDrawing(L);
     const char* text = luaL_checkstring(L, 1);
-    int x = luaL_checkinteger(L, 2);
-    int y = luaL_checkinteger(L, 3);
     Font* font = luax::checkObject<Font>(L, 4);
     Color color = optColor(L, 5);
+#if GRIMROCK_GAME >= 2
+    // 0x004206f0: drawText(text, x, y, font [, color [, snapToPixels]]); false keeps the
+    // fractional position
+    if (lua_gettop(L) > 5 && !luax::checkBool(L, 6))
+    {
+        Vec2 pos((float)luaL_checknumber(L, 2), (float)luaL_checknumber(L, 3));
+        im::drawText(text, pos, font, color, 0x7fffffff);
+        return 0;
+    }
+#endif
+    int x = luaL_checkinteger(L, 2);
+    int y = luaL_checkinteger(L, 3);
     im::drawText(text, x, y, font, color, 0x7fffffff);
     return 0;
 }
@@ -374,15 +519,31 @@ static int ImmediateMode_beginShape(lua_State* L)
     luax::Enum shapes[] = {{"points", 0},    {"lines", 1}, {"lines_antialiased", 2},
                            {"triangles", 3}, {"quads", 4}, {0, 0}};
     int type = luax::checkEnum(L, 1, shapes);
+#if GRIMROCK_GAME >= 2
+    // 0x00420c00: beginShape(type [, texture [, threeDee]])
+    RenderableTexture* texture = luax::checkObjectOpt<RenderableTexture>(L, 2);
+    bool threeDee = false;
+    if (lua_type(L, 3) != LUA_TNONE)
+        threeDee = luax::checkBool(L, 3);
+    im::beginShape(type, texture, threeDee);
+#else
     bool threeDee = luax::checkBool(L, 2);
     im::beginShape(type, threeDee);
+#endif
     return 0;
 }
-// 0x0813bf30
+// 0x0813bf30 / 0x00420cd0: vertexPosition(x, y [, z])
 static int ImmediateMode_vertexPosition(lua_State* L)
 {
     float x = (float)luaL_checknumber(L, 1);
     float y = (float)luaL_checknumber(L, 2);
+#if GRIMROCK_GAME >= 2
+    if (lua_gettop(L) > 2)
+    {
+        im::vertexPosition(x, y, (float)luaL_checknumber(L, 3));
+        return 0;
+    }
+#endif
     im::vertexPosition(x, y);
     return 0;
 }
@@ -410,8 +571,17 @@ static int ImmediateMode_endShape(lua_State* L)
 const luaL_Reg ImmediateMode_methods[] = {
     {"setTransform", ImmediateMode_setTransform},
     {"setIdentityTransform", ImmediateMode_setIdentityTransform},
+#if GRIMROCK_GAME >= 2
+    {"translate", ImmediateMode_translate},
+    {"rotate", ImmediateMode_rotate},
+    {"scale", ImmediateMode_scale},
+#endif
     {"setLineWidth", ImmediateMode_setLineWidth},
     {"setBlendMode", ImmediateMode_setBlendMode},
+#if GRIMROCK_GAME >= 2
+    {"setTextureFilterMode", ImmediateMode_setTextureFilterMode},
+    {"setTextureAddressMode", ImmediateMode_setTextureAddressMode},
+#endif
     {"clipTo", ImmediateMode_clipTo},
     {"resetClip", ImmediateMode_resetClip},
     {"getClipRect", ImmediateMode_getClipRect},
@@ -421,10 +591,19 @@ const luaL_Reg ImmediateMode_methods[] = {
     {"endDraw", ImmediateMode_endDraw},
     {"drawPoint", ImmediateMode_drawPoint},
     {"drawLine", ImmediateMode_drawLine},
+#if GRIMROCK_GAME >= 2
+    {"drawLine3D", ImmediateMode_drawLine3D},
+#endif
     {"drawLineAntialiased", ImmediateMode_drawLineAntialiased},
     {"drawRect", ImmediateMode_drawRect},
     {"drawImage", ImmediateMode_drawImage},
+#if GRIMROCK_GAME >= 2
+    {"drawImageV", ImmediateMode_drawImageV},
+#endif
     {"drawText", ImmediateMode_drawText},
+#if GRIMROCK_GAME >= 2
+    {"drawParagraph", ImmediateMode_drawParagraph},
+#endif
     {"fillRect", ImmediateMode_fillRect},
     {"fillRoundedRect", ImmediateMode_fillRoundedRect},
     {"fillRoundedRectAntialiased", ImmediateMode_fillRoundedRectAntialiased},
@@ -445,6 +624,54 @@ static int Graphics_setRenderTarget(lua_State* L)
     Graphics::sm_pActive->setRenderTarget(target);
     return 0;
 }
+#if GRIMROCK_GAME >= 2
+// 0x00420e20
+static int Graphics_setViewport(lua_State* L)
+{
+    int x = luaL_checkinteger(L, 1);
+    int y = luaL_checkinteger(L, 2);
+    int width = luaL_checkinteger(L, 3);
+    int height = luaL_checkinteger(L, 4);
+    Graphics::sm_pActive->setViewport(x, y, width, height);
+    return 0;
+}
+// 0x00420e80: clear([color]), transparent black by default
+static int Graphics_clear(lua_State* L)
+{
+    Color color(0, 0, 0, 0);
+    if (lua_gettop(L) > 0)
+        color = luax::checkColor(L, 1);
+    Graphics::sm_pActive->clear(color);
+    return 0;
+}
+// 0x00420ed0: drawRect([material]) | drawRect(texture, pos [, material]) |
+// drawRect(texture, pos, size [, material])
+static int Graphics_drawRect(lua_State* L)
+{
+    int top = lua_gettop(L);
+    if (top < 2)
+    {
+        Graphics::sm_pActive->drawRect(luax::checkObjectOpt<Material>(L, 1));
+        return 0;
+    }
+    RenderableTexture* texture = luax::checkObject<RenderableTexture>(L, 1);
+    Vec2 pos = luax::checkVector2(L, 2);
+    if (top == 2)
+    {
+        Graphics::sm_pActive->drawRect(*texture, pos, 0);
+        return 0;
+    }
+    Material* material = luax::checkObjectOpt<Material>(L, 3);
+    if (material)
+    {
+        Graphics::sm_pActive->drawRect(*texture, pos, material);
+        return 0;
+    }
+    Vec2 size = luax::checkVector2(L, 3);
+    Graphics::sm_pActive->drawRect(*texture, pos, size, luax::checkObjectOpt<Material>(L, 4));
+    return 0;
+}
+#else
 // 0x08138de0: clears to transparent black
 static int Graphics_clear(lua_State* L)
 {
@@ -457,6 +684,7 @@ static int Graphics_drawRect(lua_State* L)
     Graphics::sm_pActive->drawRect();
     return 0;
 }
+#endif
 // 0x0813fac0: blit(source, target, material)
 static int Graphics_blit(lua_State* L)
 {
@@ -468,6 +696,9 @@ static int Graphics_blit(lua_State* L)
 }
 
 const luaL_Reg Graphics_methods[] = {{"setRenderTarget", Graphics_setRenderTarget},
+#if GRIMROCK_GAME >= 2
+                                     {"setViewport", Graphics_setViewport},
+#endif
                                      {"clear", Graphics_clear},
                                      {"drawRect", Graphics_drawRect},
                                      {"blit", Graphics_blit},

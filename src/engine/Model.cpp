@@ -65,6 +65,32 @@ Model* Model::getModelByFilename(const char* filename)
     return 0;
 }
 
+#if GRIMROCK_GAME >= 2
+// 0x004b96c0
+bool Model::hasSourceData() const
+{
+    for (int i = 0; i < m_nodes.size(); ++i)
+    {
+        MeshEntity* entity = (MeshEntity*)m_nodes[i]->getRenderEntity();
+        if (entity && entity->getEntityType() == RenderEntity::MeshEntityType &&
+            entity->getMesh() && !entity->getMesh()->getSourceData())
+            return false;
+    }
+    return true;
+}
+// 0x004b9710
+Model* Model::getModelByFilename(const char* filename, bool keepSourceData)
+{
+    for (int i = 0; i < sm_models.size(); ++i)
+    {
+        if (strcmp(sm_models[i]->m_filename.c_str(), filename) != 0)
+            continue;
+        if (!keepSourceData || sm_models[i]->hasSourceData())
+            return sm_models[i];
+    }
+    return 0;
+}
+#endif
 // 0x080fdc90
 Node* Model::instantiate(Scene& scene) const
 {
@@ -248,7 +274,11 @@ static void checkHeader(InputStream& in)
 // 0x080fc6e0
 Model* loadModel(const char* filename, bool keepSourceData)
 {
+#if GRIMROCK_GAME >= 2
+    Model* cached = Model::getModelByFilename(filename, keepSourceData);
+#else
     Model* cached = Model::getModelByFilename(filename);
+#endif
     if (cached)
         return cached;
     AssetProcessor* processor = findAssetProcessor(AssetProcessor::ModelAsset, filename);

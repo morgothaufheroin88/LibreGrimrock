@@ -40,6 +40,12 @@ class Model
         return m_nodes;
     }
     static Model* getModelByFilename(const char* filename);
+#if GRIMROCK_GAME >= 2
+    // 0x004b96c0: every mesh of the model kept its source data
+    bool hasSourceData() const;
+    // 0x004b9710: a cached model only matches when it has the source data that is wanted
+    static Model* getModelByFilename(const char* filename, bool keepSourceData);
+#endif
     static core::Array<Model*> sm_models;
 
   private:

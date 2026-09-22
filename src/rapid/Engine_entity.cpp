@@ -7,6 +7,10 @@ using namespace engine;
 
 // 0x082be7a8
 luax::Enum g_particleEmitterBlendModes[] = {{"Translucent", 0}, {"Additive", 1}, {0, 0}};
+#if GRIMROCK_GAME >= 2
+// 0x0061a288
+luax::Enum g_particleEmitterShapes[] = {{"BoxShape", 0}, {"MeshShape", 1}, {0, 0}};
+#endif
 
 // ---- RenderEntity ----------------------------------------------------------------
 
@@ -31,6 +35,34 @@ static int RenderEntity_setSortOffset(lua_State* L)
     entity->setSortOffset((float)luaL_checknumber(L, 2));
     return 0;
 }
+#if GRIMROCK_GAME >= 2
+// 0x00418e70
+static int RenderEntity_setPassMask(lua_State* L)
+{
+    RenderEntity* entity = luax::checkObject<RenderEntity>(L, 1);
+    entity->setPassMask((unsigned int)luaL_checkinteger(L, 2));
+    return 0;
+}
+// 0x00418f10
+static int RenderEntity_setRenderHack(lua_State* L)
+{
+    RenderEntity* entity = luax::checkObject<RenderEntity>(L, 1);
+    entity->setRenderHack(luaL_checkinteger(L, 2));
+    return 0;
+}
+// 0x00418eb0
+static int RenderEntity_getPassMask(lua_State* L)
+{
+    lua_pushnumber(L, luax::checkObject<RenderEntity>(L, 1)->getPassMask());
+    return 1;
+}
+// 0x00418f50
+static int RenderEntity_getRenderHack(lua_State* L)
+{
+    lua_pushnumber(L, luax::checkObject<RenderEntity>(L, 1)->getRenderHack());
+    return 1;
+}
+#endif
 // 0x0813f160
 static int RenderEntity_getEntityType(lua_State* L)
 {
@@ -86,14 +118,26 @@ static int RenderEntity_getWorldBounds(lua_State* L)
 const luaL_Reg RenderEntity_methods[] = {{"setDrawBoundBox", RenderEntity_setDrawBoundBox},
                                          {"setHidden", RenderEntity_setHidden},
                                          {"setSortOffset", RenderEntity_setSortOffset},
+#if GRIMROCK_GAME >= 2
+                                         {"setPassMask", RenderEntity_setPassMask},
+                                         {"setRenderHack", RenderEntity_setRenderHack},
+#endif
                                          {"getEntityType", RenderEntity_getEntityType},
                                          {"getDrawBoundBox", RenderEntity_getDrawBoundBox},
                                          {"getHidden", RenderEntity_getHidden},
                                          {"getSortOffset", RenderEntity_getSortOffset},
+#if GRIMROCK_GAME >= 2
+                                         {"getPassMask", RenderEntity_getPassMask},
+                                         {"getRenderHack", RenderEntity_getRenderHack},
+#endif
                                          {"getNode", RenderEntity_getNode},
                                          {"getWorldBounds", RenderEntity_getWorldBounds},
                                          {0, 0}};
+#if GRIMROCK_GAME >= 2
+const char* RenderEntity_properties[] = {"DrawBoundBox", "Hidden", "SortOffset", "PassMask", 0};
+#else
 const char* RenderEntity_properties[] = {"DrawBoundBox", "Hidden", "SortOffset", 0};
+#endif
 
 // ---- MeshEntity ------------------------------------------------------------------
 
@@ -209,6 +253,48 @@ static int MeshEntity_setDrawTangents(lua_State* L)
     entity->setFlag(MeshEntity::DrawTangents, luax::checkBool(L, 2));
     return 0;
 }
+#if GRIMROCK_GAME >= 2
+// 0x00419cb0: setManualBounds(box, worldSpace)
+static int MeshEntity_setManualBounds(lua_State* L)
+{
+    MeshEntity* entity = luax::checkObject<MeshEntity>(L, 1);
+    AABox3 box = luax::checkBox(L, 2);
+    entity->setManualBounds(box, luax::checkBool(L, 3));
+    return 0;
+}
+// 0x00419d20: setManualBounds2(center, halfExtents, worldSpace)
+static int MeshEntity_setManualBounds2(lua_State* L)
+{
+    MeshEntity* entity = luax::checkObject<MeshEntity>(L, 1);
+    Vec3 center = luax::checkVector3(L, 2);
+    Vec3 extents = luax::checkVector3(L, 3);
+    bool worldSpace = luax::checkBool(L, 4);
+    AABox3 box;
+    box.min = center - extents;
+    box.max = center + extents;
+    entity->setManualBounds(box, worldSpace);
+    return 0;
+}
+#define MESH_ENTITY_FLOAT(name)                                                              \
+    static int MeshEntity_set##name(lua_State* L)                                            \
+    {                                                                                        \
+        luax::checkObject<MeshEntity>(L, 1)->set##name((float)luaL_checknumber(L, 2));       \
+        return 0;                                                                            \
+    }                                                                                        \
+    static int MeshEntity_get##name(lua_State* L)                                            \
+    {                                                                                        \
+        lua_pushnumber(L, luax::checkObject<MeshEntity>(L, 1)->get##name());                 \
+        return 1;                                                                            \
+    }
+// 0x004194b0-0x004197c0
+MESH_ENTITY_FLOAT(Dissolve)
+MESH_ENTITY_FLOAT(DissolveStart)
+MESH_ENTITY_FLOAT(DissolveEnd)
+MESH_ENTITY_FLOAT(ShadowMinDistance)
+MESH_ENTITY_FLOAT(ShadowMaxDistance)
+MESH_ENTITY_FLOAT(SkinningDistance)
+#undef MESH_ENTITY_FLOAT
+#else
 // 0x081472b0
 static int MeshEntity_setManualBounds(lua_State* L)
 {
@@ -216,6 +302,7 @@ static int MeshEntity_setManualBounds(lua_State* L)
     entity->setManualBounds(luax::checkBox(L, 2));
     return 0;
 }
+#endif
 // 0x081435f0
 static int MeshEntity_getMesh(lua_State* L)
 {
@@ -285,6 +372,15 @@ const luaL_Reg MeshEntity_methods[] = {{"create", MeshEntity_create},
                                        {"setDrawNormals", MeshEntity_setDrawNormals},
                                        {"setDrawTangents", MeshEntity_setDrawTangents},
                                        {"setManualBounds", MeshEntity_setManualBounds},
+#if GRIMROCK_GAME >= 2
+                                       {"setManualBounds2", MeshEntity_setManualBounds2},
+                                       {"setDissolve", MeshEntity_setDissolve},
+                                       {"setDissolveStart", MeshEntity_setDissolveStart},
+                                       {"setDissolveEnd", MeshEntity_setDissolveEnd},
+                                       {"setShadowMinDistance", MeshEntity_setShadowMinDistance},
+                                       {"setShadowMaxDistance", MeshEntity_setShadowMaxDistance},
+                                       {"setSkinningDistance", MeshEntity_setSkinningDistance},
+#endif
                                        {"getMesh", MeshEntity_getMesh},
                                        {"getSkeleton", MeshEntity_getSkeleton},
                                        {"getMaterials", MeshEntity_getMaterials},
@@ -293,6 +389,14 @@ const luaL_Reg MeshEntity_methods[] = {{"create", MeshEntity_create},
                                        {"getStaticShadow", MeshEntity_getStaticShadow},
                                        {"getDrawNormals", MeshEntity_getDrawNormals},
                                        {"getDrawTangents", MeshEntity_getDrawTangents},
+#if GRIMROCK_GAME >= 2
+                                       {"getDissolve", MeshEntity_getDissolve},
+                                       {"getDissolveStart", MeshEntity_getDissolveStart},
+                                       {"getDissolveEnd", MeshEntity_getDissolveEnd},
+                                       {"getShadowMinDistance", MeshEntity_getShadowMinDistance},
+                                       {"getShadowMaxDistance", MeshEntity_getShadowMaxDistance},
+                                       {"getSkinningDistance", MeshEntity_getSkinningDistance},
+#endif
                                        {0, 0}};
 
 // ---- LightEntity -----------------------------------------------------------------
@@ -305,6 +409,89 @@ static int LightEntity_create(lua_State* L)
     luax::createSharedObject<LightEntity>(L, light);
     return 1;
 }
+#if GRIMROCK_GAME >= 2
+// 0x0041a150
+static int LightEntity_setLightType(lua_State* L)
+{
+    LightEntity* light = luax::checkObject<LightEntity>(L, 1);
+    light->setLightType((LightEntity::LightType)luax::checkEnum(L, 2, g_lightTypes));
+    return 0;
+}
+// 0x0041a2f0
+static int LightEntity_setLightColor2(lua_State* L)
+{
+    luax::checkObject<LightEntity>(L, 1)->setLightColor2(luax::checkVector3_alt(L, 2));
+    return 0;
+}
+// 0x0041a3d0
+static int LightEntity_setLightColor3(lua_State* L)
+{
+    luax::checkObject<LightEntity>(L, 1)->setLightColor3(luax::checkVector3_alt(L, 2));
+    return 0;
+}
+// 0x0041ab20: setClipDistance(face 0..5, distance)
+static int LightEntity_setClipDistance(lua_State* L)
+{
+    LightEntity* light = luax::checkObject<LightEntity>(L, 1);
+    int face = luaL_checkinteger(L, 2);
+    if (face < 0 || face >= LightEntity::NumClipDistances)
+        luaL_error(L, "invalid face");
+    light->setClipDistance(face, (float)luaL_checknumber(L, 3));
+    return 0;
+}
+// 0x0041a8d0
+static int LightEntity_setSpecular(lua_State* L)
+{
+    luax::checkObject<LightEntity>(L, 1)->setSpecular(luax::checkBool(L, 2));
+    return 0;
+}
+// 0x0041a970
+static int LightEntity_setDebugDraw(lua_State* L)
+{
+    luax::checkObject<LightEntity>(L, 1)->setDebugDraw(luax::checkBool(L, 2));
+    return 0;
+}
+// 0x0041a1a0
+static int LightEntity_getLightType(lua_State* L)
+{
+    luax::pushEnum(L, luax::checkObject<LightEntity>(L, 1)->getLightType(), g_lightTypes);
+    return 1;
+}
+// 0x0041a390
+static int LightEntity_getLightColor2(lua_State* L)
+{
+    luax::pushVector(L, luax::checkObject<LightEntity>(L, 1)->getLightColor2());
+    return 1;
+}
+// 0x0041a470
+static int LightEntity_getLightColor3(lua_State* L)
+{
+    luax::pushVector(L, luax::checkObject<LightEntity>(L, 1)->getLightColor3());
+    return 1;
+}
+// 0x0041abd0
+static int LightEntity_getClipDistance(lua_State* L)
+{
+    LightEntity* light = luax::checkObject<LightEntity>(L, 1);
+    int face = luaL_checkinteger(L, 2);
+    if (face < 0 || face >= LightEntity::NumClipDistances)
+        luaL_error(L, "invalid face");
+    lua_pushnumber(L, light->getClipDistance(face));
+    return 1;
+}
+// 0x0041a920
+static int LightEntity_getSpecular(lua_State* L)
+{
+    lua_pushboolean(L, luax::checkObject<LightEntity>(L, 1)->getSpecular());
+    return 1;
+}
+// 0x0041a9c0
+static int LightEntity_getDebugDraw(lua_State* L)
+{
+    lua_pushboolean(L, luax::checkObject<LightEntity>(L, 1)->getDebugDraw());
+    return 1;
+}
+#endif
 // 0x081427b0
 static int LightEntity_setLightColor(lua_State* L)
 {
@@ -428,7 +615,8 @@ static int LightEntity_getPrimaryLight(lua_State* L)
     lua_pushboolean(L, luax::checkObject<LightEntity>(L, 1)->getPrimaryLight());
     return 1;
 }
-// 0x081478d0: renderStaticShadowMap(size, bias, flags) -> texture
+// 0x081478d0 / 0x0041ac40: renderStaticShadowMap(size, bias, flags [, updateClipDistances])
+// -> texture
 static int LightEntity_renderStaticShadowMap(lua_State* L)
 {
     try
@@ -440,7 +628,13 @@ static int LightEntity_renderStaticShadowMap(lua_State* L)
         constexpr unsigned MaxShadowMapSize = 2048;
         if (size > MaxShadowMapSize || size == 0 || ((size - 1) & size) != 0)
             luaL_error(L, "invalid shadow map size");
+#if GRIMROCK_GAME >= 2
+        bool updateClipDistances = luax::checkBool(L, 5);
+        RenderableTexture* texture =
+            light->renderStaticShadowMap(size, bias, flags, updateClipDistances);
+#else
         RenderableTexture* texture = light->renderStaticShadowMap(size, bias, flags);
+#endif
         if (!texture)
         {
             lua_pushnil(L);
@@ -455,6 +649,83 @@ static int LightEntity_renderStaticShadowMap(lua_State* L)
     }
 }
 
+#if GRIMROCK_GAME >= 2
+const luaL_Reg LightEntity_methods[] = {
+    {"create", LightEntity_create},
+    {"setLightType", LightEntity_setLightType},
+    {"setLightColor", LightEntity_setLightColor},
+    {"setLightColor2", LightEntity_setLightColor2},
+    {"setLightColor3", LightEntity_setLightColor3},
+    {"setLightRange", LightEntity_setLightRange},
+    {"setSpotAngle", LightEntity_setSpotAngle},
+    {"setSpotSharpness", LightEntity_setSpotSharpness},
+    {"setCastShadow", LightEntity_setCastShadow},
+    {"setMaxShadowDistance", LightEntity_setMaxShadowDistance},
+    {"setShadowMapSize", LightEntity_setShadowMapSize},
+    {"setStaticShadowMap", LightEntity_setStaticShadowMap},
+    {"setClipDistance", LightEntity_setClipDistance},
+    {"setPrimaryLight", LightEntity_setPrimaryLight},
+    {"setSpecular", LightEntity_setSpecular},
+    {"setDebugDraw", LightEntity_setDebugDraw},
+    {"getLightType", LightEntity_getLightType},
+    {"getLightColor", LightEntity_getLightColor},
+    {"getLightColor2", LightEntity_getLightColor2},
+    {"getLightColor3", LightEntity_getLightColor3},
+    {"getLightRange", LightEntity_getLightRange},
+    {"getSpotAngle", LightEntity_getSpotAngle},
+    {"getSpotSharpness", LightEntity_getSpotSharpness},
+    {"getCastShadow", LightEntity_getCastShadow},
+    {"getMaxShadowDistance", LightEntity_getMaxShadowDistance},
+    {"getShadowMapSize", LightEntity_getShadowMapSize},
+    {"getStaticShadowMap", LightEntity_getStaticShadowMap},
+    {"getClipDistance", LightEntity_getClipDistance},
+    {"getPrimaryLight", LightEntity_getPrimaryLight},
+    {"getSpecular", LightEntity_getSpecular},
+    {"getDebugDraw", LightEntity_getDebugDraw},
+    {"renderStaticShadowMap", LightEntity_renderStaticShadowMap},
+    {0, 0}};
+const char* LightEntity_properties[] = {"LightType",     "LightColor",        "LightColor2",
+                                        "LightColor3",   "LightRange",        "SpotAngle",
+                                        "SpotSharpness", "CastShadow",        "MaxShadowDistance",
+                                        "ShadowMapSize", "PrimaryLight",      0};
+
+// ---- OccluderEntity --------------------------------------------------------------
+
+// 0x00419fb0: OccluderEntity.create([mesh])
+static int OccluderEntity_create(lua_State* L)
+{
+    Mesh* mesh = 0;
+    if (lua_gettop(L) > 0)
+    {
+        mesh = luax::checkObject<Mesh>(L, 1);
+        if (mesh->getIndices().size() == 0)
+            luaL_error(L, "mesh does not have indices");
+    }
+    luax::createSharedObject<OccluderEntity>(L, new OccluderEntity(mesh));
+    return 1;
+}
+// 0x0041a0a0: setMesh(mesh | nil)
+static int OccluderEntity_setMesh(lua_State* L)
+{
+    OccluderEntity* entity = luax::checkObject<OccluderEntity>(L, 1);
+    Mesh* mesh = 0;
+    if (lua_type(L, 2) != LUA_TNIL)
+        mesh = luax::checkObject<Mesh>(L, 2);
+    entity->setMesh(mesh);
+    return 0;
+}
+// 0x0041a110
+static int OccluderEntity_getMesh(lua_State* L)
+{
+    pushSharedObject<Mesh>(L, luax::checkObject<OccluderEntity>(L, 1)->getMesh());
+    return 1;
+}
+
+const luaL_Reg OccluderEntity_methods[] = {{"create", OccluderEntity_create},
+                                           {"setMesh", OccluderEntity_setMesh},
+                                           {"getMesh", OccluderEntity_getMesh},
+                                           {0, 0}};
+#else
 const luaL_Reg LightEntity_methods[] = {
     {"create", LightEntity_create},
     {"setLightColor", LightEntity_setLightColor},
@@ -480,6 +751,7 @@ const luaL_Reg LightEntity_methods[] = {
 const char* LightEntity_properties[] = {"LightColor",    "LightRange",   "SpotAngle",
                                         "SpotSharpness", "CastShadow",   "MaxShadowDistance",
                                         "ShadowMapSize", "PrimaryLight", 0};
+#endif
 
 // ---- ParticleEntity --------------------------------------------------------------
 
@@ -525,6 +797,111 @@ static int ParticleEntity_stop(lua_State* L)
     luax::checkObject<ParticleEntity>(L, 1)->stop();
     return 0;
 }
+#if GRIMROCK_GAME >= 2
+// 0x0041b420: update(dt [, skipEmission])
+static int ParticleEntity_update(lua_State* L)
+{
+    ParticleEntity* entity = luax::checkObject<ParticleEntity>(L, 1);
+    float dt = (float)luaL_checknumber(L, 2);
+    bool skipEmission = false;
+    if (lua_gettop(L) > 2)
+        skipEmission = luax::checkBool(L, 3);
+    if (!entity->getNode())
+        luaL_error(L, "particle system is not attached to a node");
+    entity->update(dt, skipEmission);
+    return 0;
+}
+// 0x0041ad60: setMesh(meshCDF | nil)
+static int ParticleEntity_setMesh(lua_State* L)
+{
+    ParticleEntity* entity = luax::checkObject<ParticleEntity>(L, 1);
+    if (lua_type(L, 2) != LUA_TNIL)
+        entity->setMesh(luax::checkObject<MeshCDF>(L, 2));
+    else
+        entity->setMesh(0);
+    return 0;
+}
+// 0x0041ae10
+static int ParticleEntity_setSkeleton(lua_State* L)
+{
+    ParticleEntity* entity = luax::checkObject<ParticleEntity>(L, 1);
+    if (lua_type(L, 2) != LUA_TNIL)
+        entity->setSkeleton(luax::checkObject<Skeleton>(L, 2));
+    else
+        entity->setSkeleton(0);
+    return 0;
+}
+// 0x0041aec0
+static int ParticleEntity_setHeightmap(lua_State* L)
+{
+    ParticleEntity* entity = luax::checkObject<ParticleEntity>(L, 1);
+    if (lua_type(L, 2) != LUA_TNIL)
+        entity->setHeightmap(luax::checkObject<RenderableTexture>(L, 2));
+    else
+        entity->setHeightmap(0);
+    return 0;
+}
+#define PARTICLE_ENTITY_FLOAT(name)                                                          \
+    static int ParticleEntity_set##name(lua_State* L)                                        \
+    {                                                                                        \
+        luax::checkObject<ParticleEntity>(L, 1)->set##name((float)luaL_checknumber(L, 2));   \
+        return 0;                                                                            \
+    }                                                                                        \
+    static int ParticleEntity_get##name(lua_State* L)                                        \
+    {                                                                                        \
+        lua_pushnumber(L, luax::checkObject<ParticleEntity>(L, 1)->get##name());             \
+        return 1;                                                                            \
+    }
+// 0x0041aff0-0x0041b1e0
+PARTICLE_ENTITY_FLOAT(GroundPlaneY)
+PARTICLE_ENTITY_FLOAT(Opacity)
+PARTICLE_ENTITY_FLOAT(DistanceFadeStart)
+PARTICLE_ENTITY_FLOAT(DistanceFadeEnd)
+#undef PARTICLE_ENTITY_FLOAT
+// 0x0041add0
+static int ParticleEntity_getMesh(lua_State* L)
+{
+    pushSharedObject<MeshCDF>(L, luax::checkObject<ParticleEntity>(L, 1)->getMesh());
+    return 1;
+}
+// 0x0041ae80
+static int ParticleEntity_getSkeleton(lua_State* L)
+{
+    pushSharedObject<Skeleton>(L, luax::checkObject<ParticleEntity>(L, 1)->getSkeleton());
+    return 1;
+}
+// 0x0041afb0
+static int ParticleEntity_getHeightmap(lua_State* L)
+{
+    pushSharedObject<RenderableTexture>(L,
+                                        luax::checkObject<ParticleEntity>(L, 1)->getHeightmap());
+    return 1;
+}
+
+const luaL_Reg ParticleEntity_methods[] = {
+    {"create", ParticleEntity_create},
+    {"setParticleSystem", ParticleEntity_setParticleSystem},
+    {"setMesh", ParticleEntity_setMesh},
+    {"setSkeleton", ParticleEntity_setSkeleton},
+    {"setHeightmap", ParticleEntity_setHeightmap},
+    {"setGroundPlaneY", ParticleEntity_setGroundPlaneY},
+    {"setOpacity", ParticleEntity_setOpacity},
+    {"setDistanceFadeStart", ParticleEntity_setDistanceFadeStart},
+    {"setDistanceFadeEnd", ParticleEntity_setDistanceFadeEnd},
+    {"getMesh", ParticleEntity_getMesh},
+    {"getSkeleton", ParticleEntity_getSkeleton},
+    {"getHeightmap", ParticleEntity_getHeightmap},
+    {"getGroundPlaneY", ParticleEntity_getGroundPlaneY},
+    {"getOpacity", ParticleEntity_getOpacity},
+    {"getDistanceFadeStart", ParticleEntity_getDistanceFadeStart},
+    {"getDistanceFadeEnd", ParticleEntity_getDistanceFadeEnd},
+    {"isAlive", ParticleEntity_isAlive},
+    {"reset", ParticleEntity_reset},
+    {"start", ParticleEntity_start},
+    {"stop", ParticleEntity_stop},
+    {"update", ParticleEntity_update},
+    {0, 0}};
+#else
 // 0x0813e000
 static int ParticleEntity_update(lua_State* L)
 {
@@ -541,6 +918,7 @@ const luaL_Reg ParticleEntity_methods[] = {
     {"isAlive", ParticleEntity_isAlive}, {"reset", ParticleEntity_reset},
     {"start", ParticleEntity_start},     {"stop", ParticleEntity_stop},
     {"update", ParticleEntity_update},   {0, 0}};
+#endif
 
 // ---- ParticleSystem --------------------------------------------------------------
 
@@ -550,6 +928,20 @@ static int ParticleSystem_create(lua_State* L)
     luax::createSharedObject<ParticleSystem>(L, new ParticleSystem());
     return 1;
 }
+#if GRIMROCK_GAME >= 2
+// 0x0041b530
+static int ParticleSystem_updateTimeStamp(lua_State* L)
+{
+    luax::checkObject<ParticleSystem>(L, 1)->updateTimeStamp();
+    return 0;
+}
+// 0x0041b570
+static int ParticleSystem_clear(lua_State* L)
+{
+    luax::checkObject<ParticleSystem>(L, 1)->clear();
+    return 0;
+}
+#else
 // 0x08147430
 static int ParticleSystem_load(lua_State* L)
 {
@@ -592,6 +984,7 @@ static int ParticleSystem_getParticleSystemByFilename(lua_State* L)
         return luaL_error(L, "%s", e.getReason());
     }
 }
+#endif
 // 0x0813ddb0
 static int ParticleSystem_addParticleEmitter(lua_State* L)
 {
@@ -609,6 +1002,15 @@ static int ParticleSystem_removeParticleEmitter(lua_State* L)
     return 0;
 }
 
+#if GRIMROCK_GAME >= 2
+const luaL_Reg ParticleSystem_methods[] = {
+    {"create", ParticleSystem_create},
+    {"updateTimeStamp", ParticleSystem_updateTimeStamp},
+    {"clear", ParticleSystem_clear},
+    {"addParticleEmitter", ParticleSystem_addParticleEmitter},
+    {"removeParticleEmitter", ParticleSystem_removeParticleEmitter},
+    {0, 0}};
+#else
 const luaL_Reg ParticleSystem_methods[] = {
     {"create", ParticleSystem_create},
     {"load", ParticleSystem_load},
@@ -617,6 +1019,7 @@ const luaL_Reg ParticleSystem_methods[] = {
     {"addParticleEmitter", ParticleSystem_addParticleEmitter},
     {"removeParticleEmitter", ParticleSystem_removeParticleEmitter},
     {0, 0}};
+#endif
 
 // ---- ParticleEmitter -------------------------------------------------------------
 
@@ -691,6 +1094,34 @@ static int ParticleEmitter_setBoxMax(lua_State* L)
     luax::checkObject<ParticleEmitter>(L, 1)->m_boxMax = luax::checkVector3_alt(L, 2);
     return 0;
 }
+#if GRIMROCK_GAME >= 2
+// 0x0041b670
+static int ParticleEmitter_setEmitterShape(lua_State* L)
+{
+    luax::checkObject<ParticleEmitter>(L, 1)->m_emitterShape =
+        luax::checkEnum(L, 2, g_particleEmitterShapes);
+    return 0;
+}
+// 0x0041b6c0
+static int ParticleEmitter_getEmitterShape(lua_State* L)
+{
+    luax::pushEnum(L, luax::checkObject<ParticleEmitter>(L, 1)->m_emitterShape,
+                   g_particleEmitterShapes);
+    return 1;
+}
+// 0x0041c5e0
+static int ParticleEmitter_setRandomInitialRotation(lua_State* L)
+{
+    luax::checkObject<ParticleEmitter>(L, 1)->m_randomInitialRotation = luax::checkBool(L, 2);
+    return 0;
+}
+// 0x0041c630
+static int ParticleEmitter_getRandomInitialRotation(lua_State* L)
+{
+    lua_pushboolean(L, luax::checkObject<ParticleEmitter>(L, 1)->m_randomInitialRotation);
+    return 1;
+}
+#else
 // 0x0813bde0
 static int ParticleEmitter_setMesh(lua_State* L)
 {
@@ -715,6 +1146,7 @@ static int ParticleEmitter_setSkeleton(lua_State* L)
     emitter->setSkeleton(luax::checkObject<Skeleton>(L, 2));
     return 0;
 }
+#endif
 // 0x0814ccf0
 static int ParticleEmitter_setVelocity(lua_State* L)
 {
@@ -892,6 +1324,7 @@ static int ParticleEmitter_getBoxMax(lua_State* L)
     luax::pushVector(L, luax::checkObject<ParticleEmitter>(L, 1)->m_boxMax);
     return 1;
 }
+#if GRIMROCK_GAME < 2
 // 0x08143860
 static int ParticleEmitter_getMesh(lua_State* L)
 {
@@ -906,6 +1339,7 @@ static int ParticleEmitter_getSkeleton(lua_State* L)
     pushSharedObject<Skeleton>(L, emitter->m_skeleton.get());
     return 1;
 }
+#endif
 // 0x0813b320
 static int ParticleEmitter_getVelocity(lua_State* L)
 {
@@ -1043,6 +1477,9 @@ static int ParticleEmitter_getDepthBias(lua_State* L)
 
 const luaL_Reg ParticleEmitter_methods[] = {
     {"create", ParticleEmitter_create},
+#if GRIMROCK_GAME >= 2
+    {"setEmitterShape", ParticleEmitter_setEmitterShape},
+#endif
     {"setEmissionRate", ParticleEmitter_setEmissionRate},
     {"setEmissionTime", ParticleEmitter_setEmissionTime},
     {"setMaxParticles", ParticleEmitter_setMaxParticles},
@@ -1050,8 +1487,10 @@ const luaL_Reg ParticleEmitter_methods[] = {
     {"setSprayAngle", ParticleEmitter_setSprayAngle},
     {"setBoxMin", ParticleEmitter_setBoxMin},
     {"setBoxMax", ParticleEmitter_setBoxMax},
+#if GRIMROCK_GAME < 2
     {"setMesh", ParticleEmitter_setMesh},
     {"setSkeleton", ParticleEmitter_setSkeleton},
+#endif
     {"setVelocity", ParticleEmitter_setVelocity},
     {"setTexture", ParticleEmitter_setTexture},
     {"setFrameRate", ParticleEmitter_setFrameRate},
@@ -1067,10 +1506,16 @@ const luaL_Reg ParticleEmitter_methods[] = {
     {"setGravity", ParticleEmitter_setGravity},
     {"setAirResistance", ParticleEmitter_setAirResistance},
     {"setRotationSpeed", ParticleEmitter_setRotationSpeed},
+#if GRIMROCK_GAME >= 2
+    {"setRandomInitialRotation", ParticleEmitter_setRandomInitialRotation},
+#endif
     {"setBlendMode", ParticleEmitter_setBlendMode},
     {"setObjectSpace", ParticleEmitter_setObjectSpace},
     {"setClampToGroundPlane", ParticleEmitter_setClampToGroundPlane},
     {"setDepthBias", ParticleEmitter_setDepthBias},
+#if GRIMROCK_GAME >= 2
+    {"getEmitterShape", ParticleEmitter_getEmitterShape},
+#endif
     {"getEmissionRate", ParticleEmitter_getEmissionRate},
     {"getEmissionTime", ParticleEmitter_getEmissionTime},
     {"getMaxParticles", ParticleEmitter_getMaxParticles},
@@ -1078,8 +1523,10 @@ const luaL_Reg ParticleEmitter_methods[] = {
     {"getSprayAngle", ParticleEmitter_getSprayAngle},
     {"getBoxMin", ParticleEmitter_getBoxMin},
     {"getBoxMax", ParticleEmitter_getBoxMax},
+#if GRIMROCK_GAME < 2
     {"getMesh", ParticleEmitter_getMesh},
     {"getSkeleton", ParticleEmitter_getSkeleton},
+#endif
     {"getVelocity", ParticleEmitter_getVelocity},
     {"getTexture", ParticleEmitter_getTexture},
     {"getFrameRate", ParticleEmitter_getFrameRate},
@@ -1095,12 +1542,19 @@ const luaL_Reg ParticleEmitter_methods[] = {
     {"getGravity", ParticleEmitter_getGravity},
     {"getAirResistance", ParticleEmitter_getAirResistance},
     {"getRotationSpeed", ParticleEmitter_getRotationSpeed},
+#if GRIMROCK_GAME >= 2
+    {"getRandomInitialRotation", ParticleEmitter_getRandomInitialRotation},
+#endif
     {"getBlendMode", ParticleEmitter_getBlendMode},
     {"getObjectSpace", ParticleEmitter_getObjectSpace},
     {"getClampToGroundPlane", ParticleEmitter_getClampToGroundPlane},
     {"getDepthBias", ParticleEmitter_getDepthBias},
     {0, 0}};
-const char* ParticleEmitter_properties[] = {"EmissionRate",
+const char* ParticleEmitter_properties[] = {
+#if GRIMROCK_GAME >= 2
+                                            "EmitterShape",
+#endif
+                                            "EmissionRate",
                                             "EmissionTime",
                                             "MaxParticles",
                                             "SpawnBurst",
@@ -1124,6 +1578,9 @@ const char* ParticleEmitter_properties[] = {"EmissionRate",
                                             "Gravity",
                                             "AirResistance",
                                             "RotationSpeed",
+#if GRIMROCK_GAME >= 2
+                                            "RandomInitialRotation",
+#endif
                                             "BlendMode",
                                             "ObjectSpace",
                                             "ClampToGroundPlane",

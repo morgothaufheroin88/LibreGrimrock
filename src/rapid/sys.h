@@ -22,6 +22,10 @@ LUAX_CLASS(core::Image, "Image")
 
 void sys_mod(lua_State* L);
 void core_mod(lua_State* L);
+#if GRIMROCK_GAME >= 2
+// src2/rapid/SaveGame.cpp (0x00431640)
+void savegame_mod(lua_State* L);
+#endif
 // Resets the delta time measurement (0x0812d570).
 void resetDeltaTime();
 // Calls the function set by sys.displayFunc with the traceback handler at errfunc.

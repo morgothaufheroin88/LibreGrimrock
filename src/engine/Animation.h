@@ -38,6 +38,13 @@ class Animation
     ~Animation();
     void addTrackItem(const char* nodeName, const core::Array<TrackKey>& keys);
     void addEvent(float time, const char* name);
+#if GRIMROCK_GAME >= 2
+    // 0x004a5aa0
+    void removeEvents()
+    {
+        m_events.clear();
+    }
+#endif
     const core::String& getFilename() const
     {
         return m_filename;
@@ -96,10 +103,14 @@ class AnimationState
 {
   public:
     AnimationState()
-        : m_layer(0), m_time(0.0f), m_weight(0.0f), m_speed(1.0f), m_loop(false), m_playing(false)
+        : m_layer(0), m_time(0.0f), m_weight(0.0f), m_speed(1.0f),
+#if GRIMROCK_GAME >= 2
+          m_weightSpeed(0.0f),
+#endif
+          m_loop(false), m_playing(false)
     {
     }
-    // 0x080d3900
+    // 0x080d3900 / 0x004a4af0 (Grimrock 2 also fades the weight for crossfades)
     void advance(float dt);
     Animation* getAnimation() const
     {
@@ -116,6 +127,9 @@ class AnimationState
     float m_time;
     float m_weight;
     float m_speed;
+#if GRIMROCK_GAME >= 2
+    float m_weightSpeed; // weight change per second, negative while fading out (+0x24)
+#endif
     bool m_loop;
     bool m_playing;
 };
@@ -123,7 +137,17 @@ class AnimationState
 class AnimationController
 {
   public:
+#if GRIMROCK_GAME >= 2
+    // 0x004a7090: the node hierarchy comes later through bind (0x24 bytes)
+    AnimationController();
+    // 0x004a5f80
+    void bind(Node* root);
+    // 0x004a4fa0: fades the clip in over fadeTime seconds while the playing clips of
+    // the layer fade out.
+    bool crossfade(const char* name, float fadeTime, bool loop, int layer);
+#else
     explicit AnimationController(Node* root);
+#endif
     ~AnimationController();
     void addClip(Animation& animation, const char* name);
     // Plays the first clip on layer 0.
@@ -131,6 +155,10 @@ class AnimationController
     bool play(const char* name, bool loop, int layer);
     void stop();
     bool isPlaying(const char* name);
+#if GRIMROCK_GAME >= 2
+    // 0x004a4bd0: any clip still playing (looping or before its end)
+    bool isPlaying() const;
+#endif
     AnimationState* getAnimationState(const char* name);
     AnimationState* getAnimationState(int i)
     {

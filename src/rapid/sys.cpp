@@ -149,6 +149,25 @@ static int sys_getProjectFolder(lua_State* L)
 // 0x0812f4d0: sys.restart([args])
 static int sys_restart(lua_State* L)
 {
+#if GRIMROCK_GAME >= 2
+    // 0x0040a4b0: restart([{switch, ...}])
+    if (lua_gettop(L) > 0)
+    {
+        if (lua_type(L, 1) != LUA_TTABLE)
+            return luaL_error(L, "invalid args");
+        Array<String>& args = g_pRapidEngine->getArgList();
+        args.clear();
+        int count = (int)lua_objlen(L, 1);
+        for (int i = 1; i <= count; ++i)
+        {
+            lua_rawgeti(L, 1, i);
+            args.push_back(String(luaL_checkstring(L, -1)));
+            lua_pop(L, 1);
+        }
+    }
+    g_pRapidEngine->restart();
+    return 0;
+#else
     if (lua_gettop(L) > 0)
     {
         HashMap<String, String> args;
@@ -168,6 +187,7 @@ static int sys_restart(lua_State* L)
     }
     g_pRapidEngine->restart();
     return 0;
+#endif
 }
 // 0x0812d5c0
 static int sys_resume(lua_State* L)
@@ -185,6 +205,16 @@ static int sys_resume(lua_State* L)
 static int sys_args(lua_State* L)
 {
     lua_newtable(L);
+#if GRIMROCK_GAME >= 2
+    // 0x0040a6d0: the switches as an array
+    Array<String>& list = g_pRapidEngine->getArgList();
+    for (int i = 0; i < list.size(); ++i)
+    {
+        lua_pushstring(L, list[i].c_str());
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+#else
     HashMap<String, String>& args = g_pRapidEngine->getArgs();
     for (HashMap<String, String>::iterator it = args.begin(); it != args.end(); ++it)
     {
@@ -192,6 +222,7 @@ static int sys_args(lua_State* L)
         lua_setfield(L, -2, it.key().c_str());
     }
     return 1;
+#endif
 }
 static int sys_rootDirectory(lua_State* L)
 {
@@ -517,7 +548,15 @@ static int sys_compress(lua_State* L)
     {
         const char* data = luaL_checkstring(L, 1);
         int length;
+#if GRIMROCK_GAME >= 2
+        // 0x0040ba60: compress(data [, level]) without the size header
+        int level = 6;
+        if (lua_gettop(L) > 1)
+            level = luaL_checkinteger(L, 2);
+        char* out = compress(data, (int)lua_objlen(L, 1), length, level);
+#else
         char* out = compress(data, (int)lua_objlen(L, 1), length);
+#endif
         lua_pushlstring(L, out, length);
         delete[] out;
         return 1;
@@ -533,7 +572,14 @@ static int sys_uncompress(lua_State* L)
     {
         const char* data = luaL_checkstring(L, 1);
         int length;
+#if GRIMROCK_GAME >= 2
+        // 0x0040bb30: uncompress(data, uncompressedSize)
+        length = luaL_checkinteger(L, 2);
+        char* out = new char[length > 0 ? length : 1];
+        uncompress(data, (int)lua_objlen(L, 1), out, length);
+#else
         char* out = uncompress(data, (int)lua_objlen(L, 1), length);
+#endif
         lua_pushlstring(L, out, length);
         delete[] out;
         return 1;

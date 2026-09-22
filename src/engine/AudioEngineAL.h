@@ -86,6 +86,15 @@ class SoundSourceAL : public SoundSource
     explicit SoundSourceAL(AudioWorldAL* world);
     ~SoundSourceAL();
     void play(Sample& sample, bool positional);
+#if GRIMROCK_GAME >= 2
+    void play(Sample& sample, bool positional, int startSample);
+    void setPitch(float pitch);
+    float getPitch() const
+    {
+        return m_pitch;
+    }
+    PlayState getPlayState() const;
+#endif
     void playStream(const char* filename);
     void stop();
     bool isPlaying() const
@@ -158,6 +167,11 @@ class SoundSourceAL : public SoundSource
     float m_minDistance;
     float m_maxDistance;
     bool m_loop;
+#if GRIMROCK_GAME >= 2
+    float m_pitch;
+    int m_startSample;
+    bool m_finished; // the last sample ran to its end (not stopped)
+#endif
 };
 
 class AudioWorldAL : public AudioWorld

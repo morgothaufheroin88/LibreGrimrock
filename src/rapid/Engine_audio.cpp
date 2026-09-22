@@ -181,7 +181,15 @@ static int SoundSource_play(lua_State* L)
         SoundSource* source = luax::checkObject<SoundSource>(L, 1);
         Sample* sample = luax::checkObject<Sample>(L, 2);
         bool positional = luax::checkBool(L, 3);
+#if GRIMROCK_GAME >= 2
+        // 0x00423000: play(sample, positional [, startSample])
+        int startSample = 0;
+        if (lua_gettop(L) > 3)
+            startSample = luaL_checkinteger(L, 4);
+        source->play(*sample, positional, startSample);
+#else
         source->play(*sample, positional);
+#endif
         return 0;
     }
     catch (core::Exception& e)
@@ -281,6 +289,31 @@ static int SoundSource_getLoop(lua_State* L)
     lua_pushboolean(L, luax::checkObject<SoundSource>(L, 1)->getLoop());
     return 1;
 }
+#if GRIMROCK_GAME >= 2
+// 0x00422e50
+static int SoundSource_setPitch(lua_State* L)
+{
+    SoundSource* source = luax::checkObject<SoundSource>(L, 1);
+    source->setPitch((float)luaL_checknumber(L, 2));
+    return 0;
+}
+// 0x00422ea0
+static int SoundSource_getPitch(lua_State* L)
+{
+    lua_pushnumber(L, luax::checkObject<SoundSource>(L, 1)->getPitch());
+    return 1;
+}
+// 0x00423280
+static int SoundSource_getState(lua_State* L)
+{
+    static luax::Enum states[] = {{"playing", SoundSource::Play_Playing},
+                                  {"stopped", SoundSource::Play_Stopped},
+                                  {"finished", SoundSource::Play_Finished},
+                                  {0, 0}};
+    luax::pushEnum(L, luax::checkObject<SoundSource>(L, 1)->getPlayState(), states);
+    return 1;
+}
+#endif
 // 0x08140de0
 static int SoundSource_getSamplePosition(lua_State* L)
 {
@@ -304,13 +337,22 @@ const luaL_Reg SoundSource_methods[] = {{"create", SoundSource_create},
                                         {"setMute", SoundSource_setMute},
                                         {"setMinDistance", SoundSource_setMinDistance},
                                         {"setMaxDistance", SoundSource_setMaxDistance},
+#if GRIMROCK_GAME >= 2
+                                        {"setPitch", SoundSource_setPitch},
+#endif
                                         {"setLoop", SoundSource_setLoop},
                                         {"getVolume", SoundSource_getVolume},
                                         {"getMute", SoundSource_getMute},
                                         {"getMinDistance", SoundSource_getMinDistance},
                                         {"getMaxDistance", SoundSource_getMaxDistance},
+#if GRIMROCK_GAME >= 2
+                                        {"getPitch", SoundSource_getPitch},
+#endif
                                         {"getLoop", SoundSource_getLoop},
                                         {"getSamplePosition", SoundSource_getSamplePosition},
+#if GRIMROCK_GAME >= 2
+                                        {"getState", SoundSource_getState},
+#endif
                                         {"getNode", SoundSource_getNode},
                                         {0, 0}};
 const char* SoundSource_properties[] = {"Volume", "MinDistance", "MaxDistance", "Loop", 0};

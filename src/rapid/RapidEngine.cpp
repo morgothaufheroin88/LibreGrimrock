@@ -209,6 +209,9 @@ void RapidEngine::enterMainLoop()
         frame_mod(L);
         engine_mod(L);
         steam_mod(L);
+#if GRIMROCK_GAME >= 2
+        savegame_mod(L);
+#endif
         lua_getfield(L, LUA_GLOBALSINDEX, "debug");
         int debugIndex = lua_gettop(L);
         lua_getfield(L, -1, "traceback");

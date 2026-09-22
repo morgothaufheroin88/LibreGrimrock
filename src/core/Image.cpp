@@ -11,6 +11,7 @@
 #define STBI_ONLY_BMP
 #define STBI_ONLY_TGA
 #define STBI_ONLY_GIF
+#include <cmath>
 #include <cstring>
 #include <stb/stb_image.h>
 #include <stb/stb_image_write.h>
@@ -248,5 +249,112 @@ void Image::halve()
     delete[] m_pData;
     m_pData = out;
 }
+
+#if GRIMROCK_GAME >= 2
+// 0x004997f0: the rectangle is clipped to the image
+void Image::fillRect(int x, int y, int width, int height, const Color& color)
+{
+    int x0 = x < 0 ? 0 : (x > m_width - 1 ? m_width - 1 : x);
+    int y0 = y < 0 ? 0 : (y > m_height - 1 ? m_height - 1 : y);
+    int x1 = x + width - 1, y1 = y + height - 1;
+    x1 = x1 < 0 ? 0 : (x1 > m_width - 1 ? m_width - 1 : x1);
+    y1 = y1 < 0 ? 0 : (y1 > m_height - 1 ? m_height - 1 : y1);
+    for (int py = y0; py <= y1; ++py)
+        for (int px = x0; px <= x1; ++px)
+            setPixel(px, py, color);
+}
+// 0x00499ac0
+Vec4 Image::sampleNearestClamp(float x, float y) const
+{
+    int ix = (int)lrintf(floorf(x + 0.5f));
+    int iy = (int)lrintf(floorf(y + 0.5f));
+    ix = ix < 0 ? 0 : (ix > m_width - 1 ? m_width - 1 : ix);
+    iy = iy < 0 ? 0 : (iy > m_height - 1 ? m_height - 1 : iy);
+    Color c = getPixel(ix, iy);
+    return Vec4((float)c.r, (float)c.g, (float)c.b, (float)c.a);
+}
+// 0x00499ba0
+Vec4 Image::sampleLinearClamp(float x, float y) const
+{
+    x = x < 0.0f ? 0.0f : (x > (float)(m_width - 1) ? (float)(m_width - 1) : x);
+    y = y < 0.0f ? 0.0f : (y > (float)(m_height - 1) ? (float)(m_height - 1) : y);
+    int x0 = (int)floorf(x), y0 = (int)floorf(y);
+    float fx = x - (float)x0, fy = y - (float)y0;
+    int x1 = x0 + 1 < m_width - 1 ? x0 + 1 : m_width - 1;
+    int y1 = y0 + 1 < m_height - 1 ? y0 + 1 : m_height - 1;
+    Color c00 = getPixel(x0, y0), c10 = getPixel(x1, y0), c01 = getPixel(x0, y1),
+          c11 = getPixel(x1, y1);
+    float w00 = (1.0f - fx) * (1.0f - fy), w10 = fx * (1.0f - fy), w01 = (1.0f - fx) * fy,
+          w11 = fx * fy;
+    return Vec4(w00 * c00.r + w10 * c10.r + w01 * c01.r + w11 * c11.r,
+                w00 * c00.g + w10 * c10.g + w01 * c01.g + w11 * c11.g,
+                w00 * c00.b + w10 * c10.b + w01 * c01.b + w11 * c11.b,
+                w00 * c00.a + w10 * c10.a + w01 * c01.a + w11 * c11.a);
+}
+// 0x00499e60: samples at the pixel centres of the new grid
+void Image::resample(int width, int height)
+{
+    unsigned char* data = new unsigned char[(size_t)width * height * 4];
+    float scaleX = (float)width / (float)m_width;
+    float scaleY = (float)height / (float)m_height;
+    float offsetX = (scaleX - 1.0f) * 0.5f;
+    float offsetY = (scaleY - 1.0f) * 0.5f;
+    unsigned char* out = data;
+    for (int y = 0; y < height; ++y)
+    {
+        float sy = ((float)y - offsetY) / scaleY;
+        for (int x = 0; x < width; ++x)
+        {
+            float sx = ((float)x - offsetX) / scaleX;
+            Vec4 c = sampleLinearClamp(sx, sy);
+            out[0] = (unsigned char)(int)(c.z + 0.5f);
+            out[1] = (unsigned char)(int)(c.y + 0.5f);
+            out[2] = (unsigned char)(int)(c.x + 0.5f);
+            out[3] = (unsigned char)(int)(c.w + 0.5f);
+            out += 4;
+        }
+    }
+    delete[] m_pData;
+    m_pData = data;
+    m_width = width;
+    m_height = height;
+}
+// 0x00499ff0
+void Image::blur(int kernel)
+{
+    static constexpr float gaussian[9] = {0.0625f, 0.125f, 0.0625f, 0.125f, 0.25f,
+                                          0.125f,  0.0625f, 0.125f, 0.0625f};
+    static constexpr float gentle[9] = {0.01f, 0.08f, 0.01f, 0.08f, 0.64f, 0.08f, 0.01f, 0.08f, 0.01f};
+    const float* weights = kernel == 1 ? gaussian : gentle;
+    unsigned char* data = new unsigned char[(size_t)m_width * m_height * 4];
+    unsigned char* out = data;
+    for (int y = 0; y < m_height; ++y)
+    {
+        for (int x = 0; x < m_width; ++x)
+        {
+            float sum[4] = {0, 0, 0, 0};
+            for (int ky = -1; ky <= 1; ++ky)
+            {
+                int sy = y + ky;
+                sy = sy < 0 ? 0 : (sy > m_height - 1 ? m_height - 1 : sy);
+                for (int kx = -1; kx <= 1; ++kx)
+                {
+                    int sx = x + kx;
+                    sx = sx < 0 ? 0 : (sx > m_width - 1 ? m_width - 1 : sx);
+                    const unsigned char* p = m_pData + ((size_t)sy * m_width + sx) * 4;
+                    float w = weights[(ky + 1) * 3 + kx + 1];
+                    for (int c = 0; c < 4; ++c)
+                        sum[c] += w * p[c];
+                }
+            }
+            for (int c = 0; c < 4; ++c)
+                out[c] = (unsigned char)(int)(sum[c] + 0.5f);
+            out += 4;
+        }
+    }
+    delete[] m_pData;
+    m_pData = data;
+}
+#endif
 
 } // namespace core

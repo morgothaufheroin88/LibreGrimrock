@@ -109,6 +109,21 @@ void Profiler::endBlock()
 }
 
 // 0x080b3780
+#if GRIMROCK_GAME >= 2
+// 0x0040f2f0
+int Profiler::getBlockCount()
+{
+    return g_blocks.size();
+}
+// 0x0040f320
+void Profiler::getBlockData(int index, const char*& name, int& count, float& time)
+{
+    const ProfileBlock& block = g_blocks[index];
+    name = block.name;
+    count = block.count;
+    time = block.time;
+}
+#endif
 void Profiler::draw()
 {
     constexpr float TextX = 40.0f;

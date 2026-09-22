@@ -13,5 +13,10 @@ void decryptARC4(const char* src, char* dst, int length, const char* key, int ke
 // zlib with a leading little-endian uncompressed size. Both return new[]'ed buffers.
 char* uncompress(const char* src, int srcLength, int& length);
 char* compress(const char* src, int srcLength, int& length);
+#if GRIMROCK_GAME >= 2
+// Grimrock 2 (0x004513a0 / 0x00451430): plain zlib streams, the caller keeps the size.
+char* compress(const char* src, int srcLength, int& length, int level);
+void uncompress(const char* src, int srcLength, char* dst, int dstLength);
+#endif
 
 } // namespace core

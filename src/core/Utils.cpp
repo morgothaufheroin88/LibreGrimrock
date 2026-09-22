@@ -147,6 +147,47 @@ char* compress(const char* src, int srcLength, int& length)
     }
 }
 
+#if GRIMROCK_GAME >= 2
+// 0x004513a0
+char* compress(const char* src, int srcLength, int& length, int level)
+{
+    uLongf bound = compressBound(srcLength);
+    char* buffer = new char[bound];
+    int result = ::compress2((Bytef*)buffer, &bound, (const Bytef*)src, srcLength, level);
+    switch (result)
+    {
+    case Z_OK:
+        length = (int)bound;
+        return buffer;
+    case Z_MEM_ERROR:
+        throw Exception("out of memory (Z_MEM_ERROR)");
+    case Z_BUF_ERROR:
+        throw Exception("not enough room in the output buffer (Z_BUF_ERROR)");
+    default:
+        throw Exception("unspecified error in compress()");
+    }
+}
+// 0x00451430
+void uncompress(const char* src, int srcLength, char* dst, int dstLength)
+{
+    uLongf destLen = dstLength;
+    int result = ::uncompress((Bytef*)dst, &destLen, (const Bytef*)src, srcLength);
+    switch (result)
+    {
+    case Z_OK:
+        return;
+    case Z_MEM_ERROR:
+        throw Exception("out of memory (Z_MEM_ERROR)");
+    case Z_BUF_ERROR:
+        throw Exception("not enough room in the output buffer (Z_BUF_ERROR)");
+    case Z_DATA_ERROR:
+        throw Exception("corrupted or incomplete data (Z_DATA_ERROR)");
+    default:
+        throw Exception("unspecified error in uncompress()");
+    }
+}
+#endif
+
 } // namespace core
 
 namespace core

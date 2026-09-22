@@ -6,6 +6,7 @@
 #include "core/StringPool.h"
 #include "engine/Node.h"
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <cstring>
 
@@ -20,7 +21,11 @@ static StringPool g_nodeStringPool;
 Array<Animation*> Animation::sm_animations;
 
 constexpr unsigned int AnimationFormatTag = 0x4d494e41; // "ANIM"
+#if GRIMROCK_GAME >= 2
+constexpr unsigned int AnimationFormatVersion = 2;
+#else
 constexpr unsigned int AnimationFormatVersion = 1;
+#endif
 
 // 0x080d3a30
 Animation::Animation() : m_frameRate(0.0f), m_frameCount(0)
@@ -62,6 +67,67 @@ Animation* Animation::getAnimationByFilename(const char* filename)
     return 0;
 }
 
+#if GRIMROCK_GAME >= 2
+// 0x004a4af0: a clip fading out stops once its weight reaches zero.
+void AnimationState::advance(float dt)
+{
+    m_time += dt * m_speed;
+    if (m_weightSpeed > 0.0f)
+    {
+        m_weight += m_weightSpeed * dt;
+        if (m_weight >= 1.0f)
+        {
+            m_weight = 1.0f;
+            m_weightSpeed = 0.0f;
+        }
+    }
+    else if (m_weightSpeed < 0.0f)
+    {
+        m_weight += m_weightSpeed * dt;
+        if (m_weight <= 0.0f)
+        {
+            m_weight = 0.0f;
+            m_weightSpeed = 0.0f;
+            m_playing = false;
+        }
+    }
+}
+
+// 0x004a7090
+AnimationController::AnimationController() : m_pRoot(0)
+{
+    m_states.reserve(16);
+    m_events.reserve(64);
+}
+// 0x004a5f80
+void AnimationController::bind(Node* root)
+{
+    m_nodes.clear();
+    m_pRoot = root;
+    initNodes(root);
+}
+// 0x004a4fa0
+bool AnimationController::crossfade(const char* name, float fadeTime, bool loop, int layer)
+{
+    AnimationState* target = getAnimationState(name);
+    if (!target)
+        return false;
+    float rate = fadeTime > 0.0f ? 1.0f / fadeTime : FLT_MAX;
+    for (int i = 0; i < m_states.size(); ++i)
+    {
+        AnimationState* state = m_states[i].get();
+        if (state->m_playing && state->m_layer == layer)
+            state->m_weightSpeed = -rate;
+    }
+    target->m_time = 0.0f;
+    target->m_layer = layer;
+    target->m_weight = 0.0f;
+    target->m_loop = loop;
+    target->m_weightSpeed = rate;
+    target->m_playing = true;
+    return true;
+}
+#else
 // 0x080d3900
 void AnimationState::advance(float dt)
 {
@@ -77,6 +143,7 @@ AnimationController::AnimationController(Node* root) : m_pRoot(root)
     m_states.reserve(16);
     m_events.reserve(64);
 }
+#endif
 // 0x080d4c30
 AnimationController::~AnimationController() {}
 
@@ -126,12 +193,19 @@ void AnimationController::play(bool loop)
         state->m_playing = true;
     }
 }
-// 0x080d3d70: stops the other clips on the same layer.
+// 0x080d3d70 / 0x004a4ed0: stops the other clips on the same layer.
 bool AnimationController::play(const char* name, bool loop, int layer)
 {
     for (int i = 0; i < m_states.size(); ++i)
+    {
         if (m_states[i]->m_layer == layer)
+        {
             m_states[i]->m_playing = false;
+#if GRIMROCK_GAME >= 2
+            m_states[i]->m_weightSpeed = 0.0f;
+#endif
+        }
+    }
     for (int i = 0; i < m_states.size(); ++i)
     {
         AnimationState* state = m_states[i].get();
@@ -160,10 +234,29 @@ bool AnimationController::isPlaying(const char* name)
     {
         AnimationState* state = m_states[i].get();
         if (strcmp(state->m_name.c_str(), name) == 0)
+#if GRIMROCK_GAME >= 2
+            return state->m_playing &&
+                   (state->m_loop || state->m_time < state->m_animation->getDuration());
+#else
             return state->m_playing && state->m_time < state->m_animation->getDuration();
+#endif
     }
     return false;
 }
+#if GRIMROCK_GAME >= 2
+// 0x004a4bd0 / 0x004a4c30: a looping clip always plays, a one shot until its end
+bool AnimationController::isPlaying() const
+{
+    for (int i = 0; i < m_states.size(); ++i)
+    {
+        const AnimationState* state = m_states[i].get();
+        if (state->m_playing &&
+            (state->m_loop || state->m_time < state->m_animation->getDuration()))
+            return true;
+    }
+    return false;
+}
+#endif
 // 0x080d3b50
 AnimationState* AnimationController::getAnimationState(const char* name)
 {
@@ -173,10 +266,20 @@ AnimationState* AnimationController::getAnimationState(const char* name)
     return 0;
 }
 
-// 0x080d62a0
+// 0x080d62a0 / 0x004a6f10
 void AnimationController::update(float dt)
 {
     sample();
+#if GRIMROCK_GAME >= 2
+    // clips that ran past their end stop before the next advance
+    for (int i = 0; i < m_states.size(); ++i)
+    {
+        AnimationState* state = m_states[i].get();
+        if (state->m_playing && !state->m_loop &&
+            state->m_animation->getDuration() < state->m_time)
+            state->m_playing = false;
+    }
+#endif
     advance(dt);
 }
 
@@ -198,9 +301,13 @@ void AnimationController::advance(float dt)
         for (int e = 0; e < events.size(); ++e)
             if (time <= events[e].time && events[e].time < time + dt * state->m_speed)
                 m_events.push_back(&events[e]);
+#if GRIMROCK_GAME >= 2
+        state->advance(dt);
+#else
         state->m_time += state->m_speed * dt;
         if (!state->m_loop && state->m_time > duration)
             state->m_playing = false;
+#endif
     }
 }
 
@@ -295,8 +402,20 @@ void AnimationController::sample()
             int node = track->nodeIndex;
             if (node < 0 || node >= m_nodes.size() || !m_nodes[node])
                 continue;
+#if GRIMROCK_GAME >= 2
+            // a channel with a single key is constant (0x004a64c0 samples the position,
+            // rotation and scale channels apart); shorter tracks clamp to their last key
+            int last = track->keys.size() - 1;
+            if (last < 0)
+                continue;
+            int i0 = f0 < 0 ? 0 : (f0 > last ? last : f0);
+            int i1 = f1 < 0 ? 0 : (f1 > last ? last : f1);
+            const Animation::TrackKey& k0 = track->keys[i0];
+            const Animation::TrackKey& k1 = track->keys[i1];
+#else
             const Animation::TrackKey& k0 = track->keys[f0];
             const Animation::TrackKey& k1 = track->keys[f1];
+#endif
             Accum& a = accum[node];
             float w = weights[i];
             float w0 = (1.0f - frac) * w, w1 = frac * w;
@@ -377,9 +496,44 @@ Animation* loadAnimation(const char* filename)
     {
         String nodeName;
         in.readString(nodeName);
+        Array<Animation::TrackKey> keys;
+#if GRIMROCK_GAME >= 2
+        // version 2 stores the position, rotation and scale channels apart; a channel
+        // with a single key is constant, so it is repeated for every frame here.
+        Array<Vec3> positions, scales;
+        Array<Quat> rotations;
+        int count;
+        in.readInt(count);
+        positions.resize(count);
+        for (int k = 0; k < count; ++k)
+            in.readVector3(positions[k]);
+        in.readInt(count);
+        rotations.resize(count);
+        for (int k = 0; k < count; ++k)
+            in.readQuaternion(rotations[k]);
+        in.readInt(count);
+        scales.resize(count);
+        for (int k = 0; k < count; ++k)
+            in.readVector3(scales[k]);
+        int numKeys = positions.size();
+        if (rotations.size() > numKeys)
+            numKeys = rotations.size();
+        if (scales.size() > numKeys)
+            numKeys = scales.size();
+        keys.reserve(numKeys);
+        for (int k = 0; k < numKeys; ++k)
+        {
+            Animation::TrackKey& key = keys.push_back();
+            key.pos = positions.size() > 0 ? positions[k < positions.size() ? k : positions.size() - 1]
+                                           : Vec3(0, 0, 0);
+            key.rot = rotations.size() > 0 ? rotations[k < rotations.size() ? k : rotations.size() - 1]
+                                           : Quat(0, 0, 0, 1);
+            key.scale = scales.size() > 0 ? scales[k < scales.size() ? k : scales.size() - 1]
+                                          : Vec3(1, 1, 1);
+        }
+#else
         int numKeys;
         in.readInt(numKeys);
-        Array<Animation::TrackKey> keys;
         keys.reserve(numKeys);
         for (int k = 0; k < numKeys; ++k)
         {
@@ -388,6 +542,7 @@ Animation* loadAnimation(const char* filename)
             in.readQuaternion(key.rot);
             in.readVector3(key.scale);
         }
+#endif
         anim->addTrackItem(nodeName.c_str(), keys);
     }
     anim->m_filename = filename;

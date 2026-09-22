@@ -399,6 +399,22 @@ int sysMessageBox(const char* title, const char* message, MessageBoxType type)
         buttons[2].text = "Cancel";
         break;
     }
+    // The game window is usually fullscreen with the mouse grabbed and the cursor
+    // hidden; the dialog would open behind it and its event loop would wait forever.
+    // Release everything and drop the window out of the way first.
+    int numWindows = 0;
+    SDL_Window** windows = SDL_GetWindows(&numWindows);
+    for (int i = 0; windows && i < numWindows; ++i)
+    {
+        SDL_SetWindowRelativeMouseMode(windows[i], false);
+        SDL_SetWindowMouseGrab(windows[i], false);
+        SDL_SetWindowKeyboardGrab(windows[i], false);
+        SDL_SetWindowFullscreen(windows[i], false);
+        SDL_MinimizeWindow(windows[i]);
+    }
+    SDL_free(windows);
+    SDL_ShowCursor();
+    SDL_PumpEvents();
     SDL_MessageBoxData data;
     memset(&data, 0, sizeof(data));
     data.flags = SDL_MESSAGEBOX_INFORMATION;

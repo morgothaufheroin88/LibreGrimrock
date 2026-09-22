@@ -2,6 +2,7 @@
 // loaded/saved through FreeImage; this build uses stb_image for the same formats.
 #pragma once
 #include "core/Color.h"
+#include "core/Vector.h"
 
 namespace core
 {
@@ -49,6 +50,17 @@ class Image
     void halvePow2();
     void halve();
     void save(const char* filename, bool alpha);
+#if GRIMROCK_GAME >= 2
+    // Grimrock 2 additions (0x004997f0-0x0049a2f0): the samples are RGBA in 0..255 with
+    // the coordinates clamped to the edges.
+    void fillRect(int x, int y, int width, int height, const Color& color);
+    Vec4 sampleNearestClamp(float x, float y) const;
+    Vec4 sampleLinearClamp(float x, float y) const;
+    // Bilinear rescale to the new size.
+    void resample(int width, int height);
+    // 3x3 blur: kernel 0 = gentle (0.64 centre), 1 = gaussian (0.25 centre).
+    void blur(int kernel);
+#endif
 
   private:
     int m_width;

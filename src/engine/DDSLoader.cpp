@@ -36,6 +36,16 @@ DDSLoader::DDSLoader(const char* filename) : m_pStream(0)
         case FormatDXT3:
         case FormatDXT4:
         case FormatDXT5:
+#if GRIMROCK_GAME >= 2
+        case FormatG16R16:
+        case FormatA16B16G16R16:
+        case FormatR16F:
+        case FormatG16R16F:
+        case FormatA16B16G16R16F:
+        case FormatR32F:
+        case FormatG32R32F:
+        case FormatA32B32G32R32F:
+#endif
             m_format = m_header.fourCC;
             break;
         default:
@@ -45,23 +55,32 @@ DDSLoader::DDSLoader(const char* filename) : m_pStream(0)
     }
     else if (m_header.pfFlags & PixelFormatRGB)
     {
-        if (m_header.rgbBitCount != 32 || m_header.rBitMask != PixelMaskRed ||
-            m_header.gBitMask != PixelMaskGreen || m_header.bBitMask != PixelMaskBlue ||
-            m_header.aBitMask != PixelMaskAlpha)
+        bool rgb = m_header.rgbBitCount == 32 && m_header.rBitMask == PixelMaskRed &&
+                   m_header.gBitMask == PixelMaskGreen && m_header.bBitMask == PixelMaskBlue;
+        if (rgb && m_header.aBitMask == PixelMaskAlpha)
+            m_format = FormatA8R8G8B8;
+#if GRIMROCK_GAME >= 2
+        else if (rgb && m_header.aBitMask == 0)
+            m_format = FormatX8R8G8B8;
+#endif
+        else
             throw Exception("Unknown uncompressed DDS pixel format in file %s", filename);
-        m_format = FormatA8R8G8B8;
     }
     memset(m_surfaceOffsets, 0, sizeof(m_surfaceOffsets));
     memset(m_surfaceSizes, 0, sizeof(m_surfaceSizes));
     int width = (int)m_header.width, height = (int)m_header.height;
+    int depth = getDepth();
     int offset = m_pStream->getPosition();
-    for (int i = 0; hasMipMaps() && i < (int)m_header.mipMapCount && i < MaxSurfaces; ++i)
+    // a file without the mip map flag still has its top level surface
+    int numSurfaces = hasMipMaps() ? (int)m_header.mipMapCount : 1;
+    for (int i = 0; i < numSurfaces && i < MaxSurfaces; ++i)
     {
         m_surfaceOffsets[i] = offset;
-        m_surfaceSizes[i] = getSurfaceSize(m_format, width, height);
+        m_surfaceSizes[i] = getSurfaceSize(m_format, width, height) * depth;
         offset += m_surfaceSizes[i];
         width = width / 2 > 0 ? width / 2 : 1;
         height = height / 2 > 0 ? height / 2 : 1;
+        depth = depth / 2 > 0 ? depth / 2 : 1;
     }
 }
 // 0x080ec3f0
@@ -90,6 +109,20 @@ int DDSLoader::getSurfaceSize(unsigned int format, int width, int height)
     case FormatDXT4:
     case FormatDXT5:
         return ((width + 3) / 4) * ((height + 3) / 4) * 16;
+#if GRIMROCK_GAME >= 2
+    case FormatR16F:
+        return width * height * 2;
+    case FormatG16R16:
+    case FormatG16R16F:
+    case FormatR32F:
+        return width * height * 4;
+    case FormatA16B16G16R16:
+    case FormatA16B16G16R16F:
+    case FormatG32R32F:
+        return width * height * 8;
+    case FormatA32B32G32R32F:
+        return width * height * 16;
+#endif
     default:
         throw Exception("Could not determine DDS texture surface size");
     }

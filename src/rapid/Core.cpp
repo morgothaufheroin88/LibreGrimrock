@@ -8,6 +8,10 @@
 #include "core/Image.h"
 #include "core/MersenneTwister.h"
 #include "core/Profiler.h"
+#if GRIMROCK_GAME >= 2
+#include "core/DirectoryWatcher.h"
+#include "core/ZLibStream.h"
+#endif
 #include "core/Sys.h"
 #include "luax.h"
 #include "sys.h"
@@ -229,6 +233,14 @@ static int FileSystem_stripExtension(lua_State* L)
     return 1;
 }
 // 0x081348a0: "dir/name.ext" -> dir, name, ext (nil when missing)
+#if GRIMROCK_GAME >= 2
+// 0x0040cf50: "name####.ext" -> the first free numbered name
+static int FileSystem_getTempFilename(lua_State* L)
+{
+    lua_pushstring(L, getTempFilename(luaL_checkstring(L, 1)).c_str());
+    return 1;
+}
+#endif
 static int FileSystem_splitPath(lua_State* L)
 {
     const char* path = luaL_checkstring(L, 1);
@@ -290,6 +302,9 @@ static const luaL_Reg FileSystem_methods[] = {
     {"stripPath", FileSystem_stripPath},
     {"stripExtension", FileSystem_stripExtension},
     {"splitPath", FileSystem_splitPath},
+#if GRIMROCK_GAME >= 2
+    {"getTempFilename", FileSystem_getTempFilename},
+#endif
     {0, 0}};
 
 static int ArchiveFileSystem_create(lua_State* L)
@@ -816,6 +831,96 @@ static int Image_getPixel(lua_State* L)
     luax::pushVector(L, Vec4(pixel.r, pixel.g, pixel.b, pixel.a));
     return 1;
 }
+#if GRIMROCK_GAME >= 2
+// 0x0040eb10
+static int Image_clear(lua_State* L)
+{
+    Image* image = luax::checkObject<Image>(L, 1);
+    image->clear(luax::checkColor(L, 2));
+    return 0;
+}
+// 0x0040eb60: fillRect(x, y, width, height, color)
+static int Image_fillRect(lua_State* L)
+{
+    Image* image = luax::checkObject<Image>(L, 1);
+    int x = luaL_checkinteger(L, 2);
+    int y = luaL_checkinteger(L, 3);
+    int width = luaL_checkinteger(L, 4);
+    int height = luaL_checkinteger(L, 5);
+    image->fillRect(x, y, width, height, luax::checkColor(L, 6));
+    return 0;
+}
+// 0x0040ed10: r, g, b, a as four numbers
+static int Image_getPixelRGBA(lua_State* L)
+{
+    Image* image = luax::checkObject<Image>(L, 1);
+    int x = luaL_checkinteger(L, 2);
+    int y = luaL_checkinteger(L, 3);
+    if (x < 0 || y < 0 || x >= image->getWidth() || y >= image->getHeight())
+        luaL_error(L, "coordinate out of range");
+    Color pixel = image->getPixel(x, y);
+    lua_pushnumber(L, pixel.r);
+    lua_pushnumber(L, pixel.g);
+    lua_pushnumber(L, pixel.b);
+    lua_pushnumber(L, pixel.a);
+    return 4;
+}
+// 0x0040ee00 / 0x0040eed0
+static int Image_sampleNearestClamp(lua_State* L)
+{
+    Image* image = luax::checkObject<Image>(L, 1);
+    luax::pushVector(L, image->sampleNearestClamp((float)luaL_checknumber(L, 2),
+                                                  (float)luaL_checknumber(L, 3)));
+    return 1;
+}
+static int Image_sampleNearestClampRGBA(lua_State* L)
+{
+    Image* image = luax::checkObject<Image>(L, 1);
+    Vec4 c = image->sampleNearestClamp((float)luaL_checknumber(L, 2),
+                                       (float)luaL_checknumber(L, 3));
+    lua_pushnumber(L, c.x);
+    lua_pushnumber(L, c.y);
+    lua_pushnumber(L, c.z);
+    lua_pushnumber(L, c.w);
+    return 4;
+}
+// 0x0040ef90 / 0x0040f060
+static int Image_sampleLinearClamp(lua_State* L)
+{
+    Image* image = luax::checkObject<Image>(L, 1);
+    luax::pushVector(L, image->sampleLinearClamp((float)luaL_checknumber(L, 2),
+                                                 (float)luaL_checknumber(L, 3)));
+    return 1;
+}
+static int Image_sampleLinearClampRGBA(lua_State* L)
+{
+    Image* image = luax::checkObject<Image>(L, 1);
+    Vec4 c = image->sampleLinearClamp((float)luaL_checknumber(L, 2),
+                                      (float)luaL_checknumber(L, 3));
+    lua_pushnumber(L, c.x);
+    lua_pushnumber(L, c.y);
+    lua_pushnumber(L, c.z);
+    lua_pushnumber(L, c.w);
+    return 4;
+}
+// 0x0040f120
+static int Image_resample(lua_State* L)
+{
+    Image* image = luax::checkObject<Image>(L, 1);
+    int width = luaL_checkinteger(L, 2);
+    int height = luaL_checkinteger(L, 3);
+    if (width < 1 || height < 1)
+        luaL_error(L, "invalid image size");
+    image->resample(width, height);
+    return 0;
+}
+// 0x0040f170
+static int Image_blur(lua_State* L)
+{
+    luax::checkObject<Image>(L, 1)->blur(0);
+    return 0;
+}
+#endif
 static int Image_setImageData(lua_State* L)
 {
     Image* image = luax::checkObject<Image>(L, 1);
@@ -838,8 +943,21 @@ static const luaL_Reg Image_methods[] = {{"create", Image_create},
                                          {"copy", Image_copy},
                                          {"getWidth", Image_getWidth},
                                          {"getHeight", Image_getHeight},
+#if GRIMROCK_GAME >= 2
+                                         {"clear", Image_clear},
+                                         {"fillRect", Image_fillRect},
+#endif
                                          {"setPixel", Image_setPixel},
                                          {"getPixel", Image_getPixel},
+#if GRIMROCK_GAME >= 2
+                                         {"getPixelRGBA", Image_getPixelRGBA},
+                                         {"sampleNearestClamp", Image_sampleNearestClamp},
+                                         {"sampleNearestClampRGBA", Image_sampleNearestClampRGBA},
+                                         {"sampleLinearClamp", Image_sampleLinearClamp},
+                                         {"sampleLinearClampRGBA", Image_sampleLinearClampRGBA},
+                                         {"resample", Image_resample},
+                                         {"blur", Image_blur},
+#endif
                                          {"setImageData", Image_setImageData},
                                          {"getImageData", Image_getImageData},
                                          {0, 0}};
@@ -872,12 +990,145 @@ static int Profiler_draw(lua_State* L)
     Profiler::draw();
     return 0;
 }
+#if GRIMROCK_GAME >= 2
+// 0x0040f2f0
+static int Profiler_getBlockCount(lua_State* L)
+{
+    lua_pushnumber(L, Profiler::getBlockCount());
+    return 1;
+}
+// 0x0040f320: name, call count and time of one block
+static int Profiler_getBlockData(lua_State* L)
+{
+    int index = luaL_checkinteger(L, 1);
+    if (index < 1 || index > Profiler::getBlockCount())
+        luaL_error(L, "invalid profiler block index");
+    const char* name;
+    int count;
+    float time;
+    Profiler::getBlockData(index - 1, name, count, time);
+    lua_pushstring(L, name);
+    lua_pushnumber(L, count);
+    lua_pushnumber(L, time);
+    return 3;
+}
+#endif
 static const luaL_Reg Profiler_methods[] = {{"beginFrame", Profiler_beginFrame},
                                             {"endFrame", Profiler_endFrame},
                                             {"beginBlock", Profiler_beginBlock},
                                             {"endBlock", Profiler_endBlock},
                                             {"draw", Profiler_draw},
+#if GRIMROCK_GAME >= 2
+                                            {"getBlockCount", Profiler_getBlockCount},
+                                            {"getBlockData", Profiler_getBlockData},
+#endif
                                             {0, 0}};
+
+#if GRIMROCK_GAME >= 2
+// ---- MersenneTwister --------------------------------------------------------------
+
+LUAX_CLASS(MersenneTwister, "MersenneTwister")
+
+// 0x0040f500: MersenneTwister.create([seed])
+static int MersenneTwister_create(lua_State* L)
+{
+    MersenneTwister* rng = new MersenneTwister;
+    if (lua_gettop(L) > 0)
+        rng->initGen((unsigned long)(long long)luaL_checknumber(L, 1));
+    luax::createSharedObject<MersenneTwister>(L, rng);
+    return 1;
+}
+// 0x0040f5b0: [0,1)
+static int MersenneTwister_random(lua_State* L)
+{
+    MersenneTwister* rng = luax::checkObject<MersenneTwister>(L, 1);
+    lua_pushnumber(L, rng->genrand_real2());
+    return 1;
+}
+// 0x0040f620: randomInt(lo, hi), inclusive and in either order
+static int MersenneTwister_randomInt(lua_State* L)
+{
+    MersenneTwister* rng = luax::checkObject<MersenneTwister>(L, 1);
+    int lo = luaL_checkinteger(L, 2);
+    int hi = luaL_checkinteger(L, 3);
+    if (hi < lo)
+    {
+        int range = lo - hi + 1;
+        if (range < 2)
+            range = 1;
+        lua_pushnumber(L, hi + (int)(rng->genrand_int31() % range));
+    }
+    else
+    {
+        int range = hi - lo + 1;
+        if (range < 2)
+            range = 1;
+        lua_pushnumber(L, lo + (int)(rng->genrand_int31() % range));
+    }
+    return 1;
+}
+static const luaL_Reg MersenneTwister_methods[] = {{"create", MersenneTwister_create},
+                                                   {"random", MersenneTwister_random},
+                                                   {"randomInt", MersenneTwister_randomInt},
+                                                   {0, 0}};
+
+// ---- ZLibDecompressorInputStream ---------------------------------------------------
+
+LUAX_CLASS(ZLibDecompressorInputStream, "ZLibDecompressorInputStream")
+
+// 0x0040e300
+static int ZLibDecompressorInputStream_create(lua_State* L)
+{
+    try
+    {
+        InputStream* host = luax::checkObject<InputStream>(L, 1);
+        luax::createSharedObject<ZLibDecompressorInputStream>(
+            L, new ZLibDecompressorInputStream(host));
+        return 1;
+    }
+    catch (core::Exception& e)
+    {
+        return luaL_error(L, "%s", e.getReason());
+    }
+}
+static const luaL_Reg ZLibDecompressorInputStream_methods[] = {
+    {"create", ZLibDecompressorInputStream_create}, {0, 0}};
+
+// ---- DirectoryWatcher / FileResource ------------------------------------------------
+
+LUAX_CLASS(DirectoryWatcher, "DirectoryWatcher")
+
+// 0x0040e550
+static int DirectoryWatcher_create(lua_State* L)
+{
+    const char* path = luaL_checkstring(L, 1);
+    luax::createSharedObject<DirectoryWatcher>(L, new DirectoryWatcher(path));
+    return 1;
+}
+// 0x0040e600: the next changed file, nothing when the directory is unchanged
+static int DirectoryWatcher_getChangedFile(lua_State* L)
+{
+    DirectoryWatcher* watcher = luax::checkObject<DirectoryWatcher>(L, 1);
+    String filename;
+    if (!watcher->getChangedFile(filename))
+        return 0;
+    lua_pushstring(L, filename.c_str());
+    return 1;
+}
+static const luaL_Reg DirectoryWatcher_methods[] = {
+    {"create", DirectoryWatcher_create},
+    {"getChangedFile", DirectoryWatcher_getChangedFile},
+    {0, 0}};
+
+// 0x0040e6b0: reloads the resources loaded from the file
+static int FileResource_fileChanged(lua_State* L)
+{
+    fileChanged(luaL_checkstring(L, 1));
+    return 0;
+}
+static const luaL_Reg FileResource_methods[] = {{"fileChanged", FileResource_fileChanged},
+                                                {0, 0}};
+#endif
 
 // ---- math.random / math.randomseed ------------------------------------------------
 
@@ -956,6 +1207,13 @@ void core_mod(lua_State* L)
     luax::registerClass(L, "FileDate", FileDate_methods, 0);
     luax::registerClass(L, "Image", Image_methods, Image_properties);
     luax::registerClass(L, "Profiler", Profiler_methods, 0);
+#if GRIMROCK_GAME >= 2
+    luax::registerClass(L, "MersenneTwister", MersenneTwister_methods, 0);
+    luax::registerSubclass(L, "ZLibDecompressorInputStream", "InputStream",
+                           ZLibDecompressorInputStream_methods, 0);
+    luax::registerClass(L, "DirectoryWatcher", DirectoryWatcher_methods, 0);
+    luax::registerClass(L, "FileResource", FileResource_methods, 0);
+#endif
     lua_getfield(L, LUA_GLOBALSINDEX, "math");
     for (const luaL_Reg* f = math_functions; f->name; ++f)
     {

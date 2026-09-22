@@ -51,6 +51,20 @@ class SoundSource : public Component
     virtual float getMaxDistance() const = 0;
     virtual int getSamplePosition() const = 0;
     virtual bool getLoop() const = 0;
+#if GRIMROCK_GAME >= 2
+    // Grimrock 2 (SoundSourceXA2 0x004c6540-0x004c7a00): playback from a sample offset,
+    // pitch, and whether a sample ended by itself
+    enum PlayState
+    {
+        Play_Playing = 0,
+        Play_Stopped = 1,
+        Play_Finished = 2
+    };
+    virtual void play(Sample& sample, bool positional, int startSample) = 0;
+    virtual void setPitch(float pitch) = 0;
+    virtual float getPitch() const = 0;
+    virtual PlayState getPlayState() const = 0;
+#endif
 
   protected:
     core::SharedPtr<Sample> m_sample;
@@ -122,6 +136,18 @@ class SoundSourceNull : public SoundSource
     {
         return false;
     }
+#if GRIMROCK_GAME >= 2
+    void play(Sample& sample, bool positional, int startSample) {}
+    void setPitch(float pitch) {}
+    float getPitch() const
+    {
+        return 1.0f;
+    }
+    PlayState getPlayState() const
+    {
+        return Play_Stopped;
+    }
+#endif
     void setVolume(float volume)
     {
         m_volume = volume;

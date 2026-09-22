@@ -184,6 +184,10 @@ CameraControls::CameraControls(Window* window, Camera* camera, float scale)
     : m_pWindow(window), m_pCamera(camera), m_mouseX(10), m_mouseY(10), m_pitch(0), m_yaw(0),
       m_roll(0), m_velForward(0), m_velStrafe(0), m_velUp(0), m_forward(false), m_backward(false),
       m_left(false), m_right(false), m_up(false), m_down(false), m_scale(scale)
+#if GRIMROCK_GAME >= 2
+      ,
+      m_enableControls(true)
+#endif
 {
     m_mouseX.addSample(0.0f);
     m_mouseY.addSample(0.0f);
@@ -193,6 +197,10 @@ CameraControls::~CameraControls() {}
 // 0x080f77a0: W S A D E Q
 bool CameraControls::handle(KeyEvent* e)
 {
+#if GRIMROCK_GAME >= 2
+    if (!m_enableControls)
+        return false;
+#endif
     switch (e->key)
     {
     case 'W':

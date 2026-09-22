@@ -27,6 +27,14 @@ class RapidEngine
     {
         return m_projectFolder;
     }
+#if GRIMROCK_GAME >= 2
+    // Grimrock 2 passes a plain list of switches ("skipSplash", "restoreGame") instead
+    // of the key/value pairs of the first game (0x0040a4b0 / 0x0040a6d0).
+    core::Array<core::String>& getArgList()
+    {
+        return m_argList;
+    }
+#endif
     core::HashMap<core::String, core::String>& getArgs()
     {
         return m_args;
@@ -73,6 +81,9 @@ class RapidEngine
     bool m_quit;
     bool m_restart;
     core::HashMap<core::String, core::String> m_args;
+#if GRIMROCK_GAME >= 2
+    core::Array<core::String> m_argList;
+#endif
     core::String m_companyName;
     core::String m_applicationName;
     core::SharedPtr<core::Image> m_windowIcon;

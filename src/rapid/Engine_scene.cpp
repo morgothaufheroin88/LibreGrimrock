@@ -67,6 +67,11 @@ void pushRenderEntity(lua_State* L, RenderEntity* entity)
     case RenderEntity::ParticleEntityType:
         pushSharedObject<ParticleEntity>(L, (ParticleEntity*)entity);
         break;
+#if GRIMROCK_GAME >= 2
+    case RenderEntity::OccluderEntityType:
+        pushSharedObject<OccluderEntity>(L, (OccluderEntity*)entity);
+        break;
+#endif
     default:
         luaL_error(L, "unknown render entity type");
     }
@@ -160,6 +165,23 @@ const luaL_Reg EngineSystems_methods[] = {
 
 // ---- Scene -----------------------------------------------------------------------
 
+#if GRIMROCK_GAME >= 2
+namespace
+{
+// 0x004142d0: disposes the proxies of every node when the scene goes away.
+static void disposeSceneNodes(lua_State* L, Scene* scene)
+{
+    const Array<Node*>& nodes = scene->getNodes();
+    for (int i = 0; i < nodes.size(); ++i)
+    {
+        luax::pushObject(L, nodes[i]);
+        if (!lua_isnil(L, -1))
+            luax::disposeObject(L, -1);
+        lua_pop(L, 1);
+    }
+}
+} // namespace
+#else
 namespace
 {
 // Disposes the proxies of every node when the scene goes away (Scene_dispose).
@@ -186,16 +208,21 @@ struct NodeCollector : NodeVisitor
     }
 };
 } // namespace
+#endif
 
-// 0x0814cf70
+// 0x0814cf70 / 0x00414390
 static int Scene_dispose(lua_State* L)
 {
     luax::Proxy* p = luax::checkProxy(L, 1);
     if (p->object)
     {
+#if GRIMROCK_GAME >= 2
+        disposeSceneNodes(L, (Scene*)p->object);
+#else
         NodeDeleter deleter;
         deleter.L = L;
         ((Scene*)p->object)->query(deleter);
+#endif
         luax::disposeObject(L, 1);
     }
     return 0;
@@ -247,6 +274,66 @@ static int Scene_findNode(lua_State* L)
     pushNode(L, scene->findNode(name));
     return 1;
 }
+#if GRIMROCK_GAME >= 2
+// 0x00414620: query("all" | "box", box | "sphere", {pos, radius} | "ray", ray); the
+// entity queries return the nodes of the matching entities.
+static int Scene_query(lua_State* L)
+{
+    Scene* scene = luax::checkObject<Scene>(L, 1);
+    const char* type = luaL_checkstring(L, 2);
+    static Array<RenderEntity*> entities;
+    entities.clear();
+    entities.reserve(0x800);
+    if (strcmp(type, "all") == 0)
+    {
+        lua_newtable(L);
+        const Array<Node*>& nodes = scene->getNodes();
+        for (int i = 0; i < nodes.size(); ++i)
+        {
+            pushNode(L, nodes[i]);
+            lua_rawseti(L, -2, i + 1);
+        }
+        return 1;
+    }
+    if (strcmp(type, "box") == 0)
+    {
+        scene->query(luax::checkBox(L, 3), entities);
+    }
+    else if (strcmp(type, "sphere") == 0)
+    {
+        if (lua_type(L, 3) != LUA_TTABLE)
+            luaL_typerror(L, 3, "sphere");
+        lua_pushstring(L, "pos");
+        lua_rawget(L, 3);
+        Vec3 pos = luax::checkVector3(L, -1);
+        lua_pop(L, 1);
+        lua_pushstring(L, "radius");
+        lua_rawget(L, 3);
+        float radius = (float)luaL_checknumber(L, -1);
+        lua_pop(L, 1);
+        scene->query(Sphere3(pos, radius), entities);
+    }
+    else if (strcmp(type, "ray") == 0)
+    {
+        scene->query(luax::checkRay(L, 3), entities);
+    }
+    else
+    {
+        luaL_argerror(L, 2, "invalid query type");
+    }
+    lua_newtable(L);
+    int count = 0;
+    for (int i = 0; i < entities.size(); ++i)
+    {
+        Node* node = entities[i]->getNode();
+        if (!node)
+            continue;
+        pushNode(L, node);
+        lua_rawseti(L, -2, ++count);
+    }
+    return 1;
+}
+#else
 // 0x0813ecb0: query("all" | "box", box | "sphere", {pos, radius} | "ray", ray)
 static int Scene_query(lua_State* L)
 {
@@ -293,6 +380,7 @@ static int Scene_query(lua_State* L)
     }
     return 1;
 }
+#endif
 // 0x081527a0: createMesh(mesh | renderableMesh)
 static int Scene_createMesh(lua_State* L)
 {
@@ -566,6 +654,86 @@ static int Node_getRigidBody(lua_State* L)
     pushSharedObject<RigidBody>(L, node->getRigidBody());
     return 1;
 }
+#if GRIMROCK_GAME >= 2
+// 0x0061a1d8
+static luax::Enum g_fetchVectorKinds[] = {{"position", 0},         {"rotation_x", 1},
+                                          {"rotation_y", 2},       {"rotation_z", 3},
+                                          {"world_position", 4},   {"world_rotation_x", 5},
+                                          {"world_rotation_y", 6}, {"world_rotation_z", 7},
+                                          {0, 0}};
+// 0x004150a0
+static int Node_setScene(lua_State* L)
+{
+    Node* node = luax::checkObject<Node>(L, 1);
+    Scene* scene = luax::checkObject<Scene>(L, 2);
+    node->setScene(scene);
+    return 0;
+}
+// 0x00415790: fetchVector(kind, table) fills the table with x, y, z, w (1 for points)
+static int Node_fetchVector(lua_State* L)
+{
+    Node* node = luax::checkObject<Node>(L, 1);
+    int kind = luax::checkEnum(L, 2, g_fetchVectorKinds);
+    if (lua_type(L, 3) != LUA_TTABLE)
+        luaL_typerror(L, 3, "vec");
+    Vec3 v(0, 0, 0);
+    switch (kind)
+    {
+    case 0:
+        v = node->getPosition();
+        break;
+    case 1:
+        v = node->getRotation().x;
+        break;
+    case 2:
+        v = node->getRotation().y;
+        break;
+    case 3:
+        v = node->getRotation().z;
+        break;
+    case 4:
+        v = node->getLocalToWorldMatrix().pos;
+        break;
+    case 5:
+        v = node->getLocalToWorldMatrix().x;
+        break;
+    case 6:
+        v = node->getLocalToWorldMatrix().y;
+        break;
+    case 7:
+        v = node->getLocalToWorldMatrix().z;
+        break;
+    }
+    lua_pushnumber(L, v.x);
+    lua_rawseti(L, 3, 1);
+    lua_pushnumber(L, v.y);
+    lua_rawseti(L, 3, 2);
+    lua_pushnumber(L, v.z);
+    lua_rawseti(L, 3, 3);
+    lua_pushnumber(L, (kind == 0 || kind == 4) ? 1.0 : 0.0);
+    lua_rawseti(L, 3, 4);
+    return 1;
+}
+// 0x00415e30-0x00415eb0: the render entity as the requested class, nil otherwise
+static int Node_getMeshEntity(lua_State* L)
+{
+    Node* node = luax::checkObject<Node>(L, 1);
+    pushSharedObject<MeshEntity>(L, node->getMeshEntity());
+    return 1;
+}
+static int Node_getLightEntity(lua_State* L)
+{
+    Node* node = luax::checkObject<Node>(L, 1);
+    pushSharedObject<LightEntity>(L, node->getLightEntity());
+    return 1;
+}
+static int Node_getOccluderEntity(lua_State* L)
+{
+    Node* node = luax::checkObject<Node>(L, 1);
+    pushSharedObject<OccluderEntity>(L, node->getOccluderEntity());
+    return 1;
+}
+#endif
 static int Node_getSoundSource(lua_State* L)
 {
     Node* node = luax::checkObject<Node>(L, 1);
@@ -578,6 +746,9 @@ const luaL_Reg Node_methods[] = {{"addTo", Node_addTo},
                                  {"getParent", Node_getParent},
                                  {"getChildren", Node_getChildren},
                                  {"findNode", Node_findNode},
+#if GRIMROCK_GAME >= 2
+                                 {"setScene", Node_setScene},
+#endif
                                  {"setName", Node_setName},
                                  {"setPosition", Node_setPosition},
                                  {"setRotation", Node_setRotation},
@@ -590,6 +761,9 @@ const luaL_Reg Node_methods[] = {{"addTo", Node_addTo},
                                  {"getWorldRotation", Node_getWorldRotation},
                                  {"getLocalToWorldMatrix", Node_getLocalToWorldMatrix},
                                  {"getWorldToLocalMatrix", Node_getWorldToLocalMatrix},
+#if GRIMROCK_GAME >= 2
+                                 {"fetchVector", Node_fetchVector},
+#endif
                                  {"move", Node_move},
                                  {"rotate", Node_rotate},
                                  {"rotateAbout", Node_rotateAbout},
@@ -599,6 +773,11 @@ const luaL_Reg Node_methods[] = {{"addTo", Node_addTo},
                                  {"setRigidBody", Node_setRigidBody},
                                  {"setSoundSource", Node_setSoundSource},
                                  {"getRenderEntity", Node_getRenderEntity},
+#if GRIMROCK_GAME >= 2
+                                 {"getMeshEntity", Node_getMeshEntity},
+                                 {"getLightEntity", Node_getLightEntity},
+                                 {"getOccluderEntity", Node_getOccluderEntity},
+#endif
                                  {"getRigidBody", Node_getRigidBody},
                                  {"getSoundSource", Node_getSoundSource},
                                  {0, 0}};

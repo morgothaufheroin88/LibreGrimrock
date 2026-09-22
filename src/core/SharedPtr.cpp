@@ -4,22 +4,29 @@
 namespace core
 {
 
-HashMap<void*, int> SharedPtrBase::sm_refcount;
+// The map outlives every static SharedPtr (the asset processor and mesh registries
+// release their objects during exit), so it is never destroyed.
+HashMap<void*, int>& SharedPtrBase::refcounts()
+{
+    static HashMap<void*, int>* map = new HashMap<void*, int>;
+    return *map;
+}
 
-// Inlined in every SharedPtr<T>(T*) / reset(): look the pointer up in sm_refcount,
-// insert with count 0 when missing, and return the address of the count.
+// Inlined in every SharedPtr<T>(T*) / reset(): look the pointer up in the map, insert
+// with count 0 when missing, and return the address of the count.
 int* SharedPtrBase::acquire(void* object)
 {
-    int* refCount = sm_refcount.findValue(object);
+    HashMap<void*, int>& map = refcounts();
+    int* refCount = map.findValue(object);
     if (!refCount)
-        refCount = &sm_refcount.insert(object, 0).value();
+        refCount = &map.insert(object, 0).value();
     return refCount;
 }
 
 // Inlined in every ~SharedPtr<T>: drop the map entry once the count reaches zero.
 void SharedPtrBase::release(void* object)
 {
-    sm_refcount.remove(object);
+    refcounts().remove(object);
 }
 
 } // namespace core

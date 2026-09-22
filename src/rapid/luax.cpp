@@ -505,9 +505,15 @@ Vec2 checkVector2(lua_State* L, int index)
         luaL_typerror(L, index, "vec");
     return Vec2(tableNumber(L, index, 1), tableNumber(L, index, 2));
 }
-// 0x081557c0
+// 0x081557c0; Grimrock 2 (0x004114c0...) also takes three numbers wherever a vec is
+// expected (Node.setPosition(x, y, z), RigidBody.addForce(x, y, z), ...)
 Vec3 checkVector3(lua_State* L, int index)
 {
+#if GRIMROCK_GAME >= 2
+    if (lua_isnumber(L, index))
+        return Vec3((float)luaL_checknumber(L, index), (float)luaL_checknumber(L, index + 1),
+                    (float)luaL_checknumber(L, index + 2));
+#endif
     if (lua_type(L, index) != LUA_TTABLE)
         luaL_typerror(L, index, "vec");
     return Vec3(tableNumber(L, index, 1), tableNumber(L, index, 2), tableNumber(L, index, 3));
@@ -530,9 +536,33 @@ Vec4 checkVector4(lua_State* L, int index)
     return Vec4(tableNumber(L, index, 1), tableNumber(L, index, 2), tableNumber(L, index, 3),
                 tableNumber(L, index, 4));
 }
+#if GRIMROCK_GAME >= 2
+// 0x00411150
+Vec4 checkVector4_alt(lua_State* L, int index)
+{
+    if (!lua_isnumber(L, index))
+        return checkVector4(L, index);
+    float x = (float)luaL_checknumber(L, index);
+    float y = (float)luaL_checknumber(L, index + 1);
+    float z = (float)luaL_checknumber(L, index + 2);
+    float w = (float)luaL_checknumber(L, index + 3);
+    return Vec4(x, y, z, w);
+}
+#endif
 // 0x08155b00
 Color checkColor(lua_State* L, int index)
 {
+#if GRIMROCK_GAME >= 2
+    // 0x0040c370: the colour may also be a "RRGGBB" / "RRGGBBAA" string
+    if (lua_isstring(L, index))
+    {
+        size_t length = 0;
+        const char* hex = luaL_checklstring(L, index, &length);
+        if (length != 6 && length != 8)
+            luaL_typerror(L, index, "color");
+        return Color::fromHex(hex);
+    }
+#endif
     if (lua_type(L, index) != LUA_TTABLE)
         luaL_typerror(L, index, "color");
     Color color;

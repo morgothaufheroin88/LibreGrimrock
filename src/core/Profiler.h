@@ -12,6 +12,11 @@ class Profiler
     static void beginBlock(const char* name);
     static void endBlock();
     static void draw();
+#if GRIMROCK_GAME >= 2
+    // 0x0040f2f0 / 0x0040f320: the collected blocks of the frame, for Profiler.lua
+    static int getBlockCount();
+    static void getBlockData(int index, const char*& name, int& count, float& time);
+#endif
 };
 
 class ProfileScope

@@ -24,6 +24,10 @@ class Color
     }
     explicit Color(const Vec3& v) : r(toByte(v.x)), g(toByte(v.y)), b(toByte(v.z)), a(255) {}
 
+#if GRIMROCK_GAME >= 2
+    // 0x0049e340: "RRGGBB" or "RRGGBBAA"
+    static Color fromHex(const char* hex);
+#endif
     unsigned int toRGBA() const
     {
         return (unsigned int)r | ((unsigned int)g << 8) | ((unsigned int)b << 16) |

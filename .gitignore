@@ -20,3 +20,4 @@ tools/luajit-decompiler/
 __pycache__/
 *.pyc
 run2/
+build-asan/

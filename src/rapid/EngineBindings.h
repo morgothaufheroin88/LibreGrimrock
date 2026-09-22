@@ -40,7 +40,15 @@ LUAX_CLASS(engine::ParticleEmitter, "ParticleEmitter")
 LUAX_CLASS(engine::MeshCDF, "MeshCDF")
 LUAX_CLASS(engine::Model, "Model")
 LUAX_CLASS(engine::Material, "Material")
+#if GRIMROCK_GAME >= 2
+LUAX_CLASS(engine::VPXPlayer, "VPXPlayer")
+LUAX_CLASS(engine::SSAOFilter, "SSAOFilter")
+LUAX_CLASS(engine::FogFilter, "FogFilter")
+LUAX_CLASS(engine::Tonemapper, "Tonemapper")
+LUAX_CLASS(engine::OccluderEntity, "OccluderEntity")
+#else
 LUAX_CLASS(engine::MaterialLibrary, "MaterialLibrary")
+#endif
 LUAX_CLASS(engine::Font, "Font")
 LUAX_CLASS(engine::Animation, "Animation")
 LUAX_CLASS(engine::AnimationController, "AnimationController")
@@ -77,6 +85,12 @@ extern luax::Enum g_blendModes[];
 extern luax::Enum g_textureFilterModes[];
 extern luax::Enum g_textureAddressModes[];
 extern luax::Enum g_particleEmitterBlendModes[];
+#if GRIMROCK_GAME >= 2
+extern luax::Enum g_rendererFlags[];
+extern luax::Enum g_fogModes[];
+extern luax::Enum g_renderBufferFormats[];
+extern luax::Enum g_particleEmitterShapes[];
+#endif
 
 // Pushes the proxy of an object, creating one with a shared reference when needed.
 template <class T> void pushSharedObject(lua_State* L, T* object)
@@ -127,7 +141,16 @@ extern const luaL_Reg MeshCDF_methods[];
 extern const luaL_Reg Model_methods[];
 extern const luaL_Reg Material_methods[];
 extern const char* Material_properties[];
+#if GRIMROCK_GAME >= 2
+extern const luaL_Reg HeightmapBuilder_methods[];
+extern const luaL_Reg VPXPlayer_methods[];
+extern const luaL_Reg SSAOFilter_methods[];
+extern const luaL_Reg FogFilter_methods[];
+extern const luaL_Reg Tonemapper_methods[];
+extern const luaL_Reg OccluderEntity_methods[];
+#else
 extern const luaL_Reg MaterialLibrary_methods[];
+#endif
 extern const luaL_Reg Font_methods[];
 extern const luaL_Reg Animation_methods[];
 extern const char* Animation_properties[];

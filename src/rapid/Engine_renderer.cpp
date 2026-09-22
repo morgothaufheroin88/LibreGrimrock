@@ -720,7 +720,27 @@ static int CameraControls_update(lua_State* L)
     return 0;
 }
 
+#if GRIMROCK_GAME >= 2
+// 0x004140c0
+static int CameraControls_setEnableControls(lua_State* L)
+{
+    CameraControlsEx* controls = luax::checkObject<CameraControlsEx>(L, 1);
+    controls->setEnableControls(luax::checkBool(L, 2));
+    return 0;
+}
+// 0x004141e0
+static int CameraControls_getEnableControls(lua_State* L)
+{
+    lua_pushboolean(L, luax::checkObject<CameraControlsEx>(L, 1)->getEnableControls());
+    return 1;
+}
+#endif
+
 const luaL_Reg CameraControls_methods[] = {{"create", CameraControls_create},
+#if GRIMROCK_GAME >= 2
+                                           {"setEnableControls", CameraControls_setEnableControls},
+                                           {"getEnableControls", CameraControls_getEnableControls},
+#endif
                                            {"setScale", CameraControls_setScale},
                                            {"setCamera", CameraControls_setCamera},
                                            {"getScale", CameraControls_getScale},

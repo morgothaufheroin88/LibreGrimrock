@@ -43,6 +43,8 @@ class Font
         return m_glyphs[c].width;
     }
     int getWidth(const char* text) const;
+    // grimrock2.exe 0x004b7730: the first length characters
+    int getWidth(const char* text, int length) const;
     bool isPrintable(unsigned char c) const
     {
         return m_glyphs[c].advance > 0;

@@ -7,9 +7,21 @@
 using namespace core;
 using namespace engine;
 
+#if GRIMROCK_GAME >= 2
+// 0x0061a2c8
+luax::Enum g_blendModes[] = {{"Opaque", 0},
+                             {"Additive", 1},
+                             {"Modulative", 2},
+                             {"Translucent", 3},
+                             {"Screen", 4},
+                             {"AdditiveSrcAlpha", 5},
+                             {"PremultipliedAlpha", 6},
+                             {0, 0}};
+#else
 // 0x082be7e0
 luax::Enum g_blendModes[] = {
     {"Opaque", 0}, {"Additive", 1}, {"Modulative", 2}, {"Translucent", 3}, {0, 0}};
+#endif
 // 0x082be820
 luax::Enum g_textureFilterModes[] = {{"Nearest", 0},
                                      {"Linear", 1},
@@ -18,8 +30,19 @@ luax::Enum g_textureFilterModes[] = {{"Nearest", 0},
                                      {"Linear_MipLinear", 4},
                                      {"Anisotropic", 5},
                                      {0, 0}};
+#if GRIMROCK_GAME >= 2
+// 0x0061a300
+luax::Enum g_textureAddressModes[] = {{"Wrap", 0},
+                                      {"Clamp", 1},
+                                      {"WrapU_ClampV_WrapW", 2},
+                                      {"ClampU_WrapV_WrapW", 3},
+                                      {"WrapU_ClampV_ClampW", 4},
+                                      {"ClampU_WrapV_ClampW", 5},
+                                      {0, 0}};
+#else
 // 0x082be7c0
 luax::Enum g_textureAddressModes[] = {{"Wrap", 0}, {"Clamp", 1}, {0, 0}};
+#endif
 
 static void pushEnumName(lua_State* L, const luax::Enum* enums, int value)
 {
@@ -167,6 +190,75 @@ static int Material_setNormalMap(lua_State* L)
     material->setNormalMap(luax::checkObject<RenderableTexture>(L, 2));
     return 0;
 }
+#if GRIMROCK_GAME >= 2
+// 0x0041dbd0: Material.clone(name) copies an existing material
+static int Material_clone(lua_State* L)
+{
+    const char* name = luaL_checkstring(L, 1);
+    Material* source = Material::findMaterialByName(name);
+    if (!source)
+        return luaL_error(L, "material not found '%s'", name);
+    luax::createSharedObject<Material>(L, new Material(*source));
+    return 1;
+}
+// 0x0041d2d0
+static int Material_setEmissiveMap(lua_State* L)
+{
+    Material* material = luax::checkObject<Material>(L, 1);
+    if (lua_type(L, 2) == LUA_TNIL)
+    {
+        material->setEmissiveMap(0);
+        return 0;
+    }
+    material->setEmissiveMap(luax::checkObject<RenderableTexture>(L, 2));
+    return 0;
+}
+// 0x0041d560
+static int Material_setAmbientOcclusion(lua_State* L)
+{
+    Material* material = luax::checkObject<Material>(L, 1);
+    material->setAmbientOcclusion(luax::checkBool(L, 2));
+    return 0;
+}
+// 0x0041d610
+static int Material_setCastShadow(lua_State* L)
+{
+    Material* material = luax::checkObject<Material>(L, 1);
+    material->setCastShadow(luax::checkBool(L, 2));
+    return 0;
+}
+// 0x0041d920
+static int Material_setTexcoordScaleOffset(lua_State* L)
+{
+    Material* material = luax::checkObject<Material>(L, 1);
+    material->setTexcoordScaleOffset(luax::checkVector4_alt(L, 2));
+    return 0;
+}
+// 0x0041d3c0
+static int Material_getEmissiveMap(lua_State* L)
+{
+    pushSharedObject<RenderableTexture>(L, luax::checkObject<Material>(L, 1)->getEmissiveMap());
+    return 1;
+}
+// 0x0041d5c0
+static int Material_getAmbientOcclusion(lua_State* L)
+{
+    lua_pushboolean(L, luax::checkObject<Material>(L, 1)->getAmbientOcclusion());
+    return 1;
+}
+// 0x0041d670
+static int Material_getCastShadow(lua_State* L)
+{
+    lua_pushboolean(L, luax::checkObject<Material>(L, 1)->getCastShadow());
+    return 1;
+}
+// 0x0041d980
+static int Material_getTexcoordScaleOffset(lua_State* L)
+{
+    luax::pushVector(L, luax::checkObject<Material>(L, 1)->getTexcoordScaleOffset());
+    return 1;
+}
+#endif
 // 0x0814a250
 static int Material_setShader(lua_State* L)
 {
@@ -392,6 +484,7 @@ static int Material_getMaterialByName(lua_State* L)
     pushSharedObject<Material>(L, Material::getMaterialByName(name));
     return 1;
 }
+#if GRIMROCK_GAME < 2
 // 0x0814a410
 static int Material_activate(lua_State* L)
 {
@@ -399,7 +492,56 @@ static int Material_activate(lua_State* L)
     Graphics::sm_pActive->activateMaterial(*material);
     return 0;
 }
+#endif
 
+#if GRIMROCK_GAME >= 2
+const luaL_Reg Material_methods[] = {{"create", Material_create},
+                                     {"clone", Material_clone},
+                                     {"setName", Material_setName},
+                                     {"setDiffuseMap", Material_setDiffuseMap},
+                                     {"setSpecularMap", Material_setSpecularMap},
+                                     {"setNormalMap", Material_setNormalMap},
+                                     {"setEmissiveMap", Material_setEmissiveMap},
+                                     {"setShader", Material_setShader},
+                                     {"setDoubleSided", Material_setDoubleSided},
+                                     {"setLighting", Material_setLighting},
+                                     {"setAmbientOcclusion", Material_setAmbientOcclusion},
+                                     {"setCastShadow", Material_setCastShadow},
+                                     {"setAlphaTest", Material_setAlphaTest},
+                                     {"setBlendMode", Material_setBlendMode},
+                                     {"setTextureAddressMode", Material_setTextureAddressMode},
+                                     {"setTexcoordScaleOffset", Material_setTexcoordScaleOffset},
+                                     {"setGlossiness", Material_setGlossiness},
+                                     {"setDepthBias", Material_setDepthBias},
+                                     {"setTexture", Material_setTexture},
+                                     {"setTextureFilter", Material_setTextureFilter},
+                                     {"setTextureAddress", Material_setTextureAddress},
+                                     {"setParam", Material_setParam},
+                                     {"getName", Material_getName},
+                                     {"getDiffuseMap", Material_getDiffuseMap},
+                                     {"getSpecularMap", Material_getSpecularMap},
+                                     {"getNormalMap", Material_getNormalMap},
+                                     {"getEmissiveMap", Material_getEmissiveMap},
+                                     {"getShader", Material_getShader},
+                                     {"getDoubleSided", Material_getDoubleSided},
+                                     {"getLighting", Material_getLighting},
+                                     {"getAmbientOcclusion", Material_getAmbientOcclusion},
+                                     {"getCastShadow", Material_getCastShadow},
+                                     {"getAlphaTest", Material_getAlphaTest},
+                                     {"getBlendMode", Material_getBlendMode},
+                                     {"getTextureAddressMode", Material_getTextureAddressMode},
+                                     {"getTexcoordScaleOffset", Material_getTexcoordScaleOffset},
+                                     {"getGlossiness", Material_getGlossiness},
+                                     {"getDepthBias", Material_getDepthBias},
+                                     {"findMaterialByName", Material_findMaterialByName},
+                                     {"getMaterialByName", Material_getMaterialByName},
+                                     {0, 0}};
+const char* Material_properties[] = {"Name",       "DiffuseMap",         "SpecularMap",
+                                     "NormalMap",  "Shader",             "DoubleSided",
+                                     "Lighting",   "CastShadow",         "AlphaTest",
+                                     "BlendMode",  "TextureAddressMode", "Glossiness",
+                                     "DepthBias",  0};
+#else
 const luaL_Reg Material_methods[] = {{"create", Material_create},
                                      {"setName", Material_setName},
                                      {"setDiffuseMap", Material_setDiffuseMap},
@@ -437,7 +579,9 @@ const char* Material_properties[] = {
     "Name",     "DiffuseMap", "SpecularMap", "NormalMap",          "Shader",     "DoubleSided",
     "Lighting", "AlphaTest",  "BlendMode",   "TextureAddressMode", "Glossiness", "DepthBias",
     0};
+#endif
 
+#if GRIMROCK_GAME < 2
 // ---- MaterialLibrary -------------------------------------------------------------
 
 // 0x08144a60: MaterialLibrary.load(filename [, flags])
@@ -490,6 +634,8 @@ const luaL_Reg MaterialLibrary_methods[] = {{"load", MaterialLibrary_load},
                                             {"getMaterial", MaterialLibrary_getMaterial},
                                             {"findMaterial", MaterialLibrary_findMaterial},
                                             {0, 0}};
+
+#endif
 
 // ---- Font ------------------------------------------------------------------------
 

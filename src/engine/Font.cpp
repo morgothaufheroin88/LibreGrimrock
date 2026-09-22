@@ -208,9 +208,12 @@ Font::~Font()
 // 0x080dc190
 int Font::getWidth(const char* text) const
 {
+    return getWidth(text, (int)strlen(text));
+}
+int Font::getWidth(const char* text, int length) const
+{
     int width = 0;
-    size_t len = strlen(text);
-    for (size_t i = 0; i < len; ++i)
+    for (int i = 0; i < length; ++i)
         width += m_glyphs[(unsigned char)text[i]].advance;
     return width;
 }

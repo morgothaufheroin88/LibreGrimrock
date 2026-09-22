@@ -78,6 +78,21 @@ static int Animation_addEvent(lua_State* L)
     return 0;
 }
 
+#if GRIMROCK_GAME >= 2
+// 0x0041ea10
+static int Animation_getFilename(lua_State* L)
+{
+    lua_pushstring(L, luax::checkObject<Animation>(L, 1)->getFilename().c_str());
+    return 1;
+}
+// 0x0041eac0
+static int Animation_removeEvents(lua_State* L)
+{
+    luax::checkObject<Animation>(L, 1)->removeEvents();
+    return 0;
+}
+#endif
+
 const luaL_Reg Animation_methods[] = {{"load", Animation_load},
                                       {"setName", Animation_setName},
                                       {"setFramesPerSecond", Animation_setFramesPerSecond},
@@ -86,7 +101,13 @@ const luaL_Reg Animation_methods[] = {{"load", Animation_load},
                                       {"getFramesPerSecond", Animation_getFramesPerSecond},
                                       {"getFrameCount", Animation_getFrameCount},
                                       {"getLength", Animation_getLength},
+#if GRIMROCK_GAME >= 2
+                                      {"getFilename", Animation_getFilename},
+#endif
                                       {"addEvent", Animation_addEvent},
+#if GRIMROCK_GAME >= 2
+                                      {"removeEvents", Animation_removeEvents},
+#endif
                                       {0, 0}};
 const char* Animation_properties[] = {"Name", "FramesPerSecond", "FrameCount", "Length", 0};
 
@@ -95,10 +116,38 @@ const char* Animation_properties[] = {"Name", "FramesPerSecond", "FrameCount", "
 // 0x081498f0: AnimationController.create(rootNode)
 static int AnimationController_create(lua_State* L)
 {
+#if GRIMROCK_GAME >= 2
+    luax::createSharedObject<AnimationController>(L, new AnimationController());
+#else
     Node* root = luax::checkObject<Node>(L, 1);
     luax::createSharedObject<AnimationController>(L, new AnimationController(root));
+#endif
     return 1;
 }
+#if GRIMROCK_GAME >= 2
+// 0x0041eb80: bind(rootNode)
+static int AnimationController_bind(lua_State* L)
+{
+    AnimationController* controller = luax::checkObject<AnimationController>(L, 1);
+    Node* root = luax::checkObject<Node>(L, 2);
+    controller->bind(root);
+    return 0;
+}
+// 0x0041ecf0: crossfade(name, fadeTime [, loop [, layer]])
+static int AnimationController_crossfade(lua_State* L)
+{
+    AnimationController* controller = luax::checkObject<AnimationController>(L, 1);
+    const char* name = luaL_checkstring(L, 2);
+    float fadeTime = (float)luaL_checknumber(L, 3);
+    bool loop = false;
+    if (lua_type(L, 4) != LUA_TNONE)
+        loop = luax::checkBool(L, 4);
+    int layer = luaL_optinteger(L, 5, 0);
+    if (!controller->crossfade(name, fadeTime, loop, layer))
+        luaL_error(L, "invalid animation state %s", name);
+    return 0;
+}
+#endif
 // 0x0813f460: addClip(animation, name)
 static int AnimationController_addClip(lua_State* L)
 {
@@ -131,6 +180,13 @@ static int AnimationController_stop(lua_State* L)
 static int AnimationController_isPlaying(lua_State* L)
 {
     AnimationController* controller = luax::checkObject<AnimationController>(L, 1);
+#if GRIMROCK_GAME >= 2
+    if (lua_gettop(L) < 2)
+    {
+        lua_pushboolean(L, controller->isPlaying());
+        return 1;
+    }
+#endif
     const char* name = luaL_checkstring(L, 2);
     lua_pushboolean(L, controller->isPlaying(name));
     return 1;
@@ -143,8 +199,17 @@ static int AnimationController_getAnimationState(lua_State* L)
     {
         const char* name = luaL_checkstring(L, 2);
         AnimationState* state = controller->getAnimationState(name);
+#if GRIMROCK_GAME >= 2
+        // 0x0041ee60: nil for an unknown name
+        if (!state)
+        {
+            lua_pushnil(L);
+            return 1;
+        }
+#else
         if (!state)
             luaL_error(L, "no animation state with name: %s", name);
+#endif
         pushSharedObject<AnimationState>(L, state);
     }
     else
@@ -203,8 +268,14 @@ static int AnimationController_getEvents(lua_State* L)
 
 const luaL_Reg AnimationController_methods[] = {
     {"create", AnimationController_create},
+#if GRIMROCK_GAME >= 2
+    {"bind", AnimationController_bind},
+#endif
     {"addClip", AnimationController_addClip},
     {"play", AnimationController_play},
+#if GRIMROCK_GAME >= 2
+    {"crossfade", AnimationController_crossfade},
+#endif
     {"stop", AnimationController_stop},
     {"isPlaying", AnimationController_isPlaying},
     {"getAnimationState", AnimationController_getAnimationState},
