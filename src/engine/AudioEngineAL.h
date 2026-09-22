@@ -39,6 +39,7 @@ class OggDecodingThreadAL : public core::Thread
     OggDecodingThreadAL();
     ~OggDecodingThreadAL();
     void run();
+    bool vorbisDecodeBuffer(OggVorbis_File* file, char* buffer, int* size);
 
     core::Array<ALuint> m_freeBuffers; // 0 entry = stop request
     core::ScopedPtr<core::Mutex> m_mutex;

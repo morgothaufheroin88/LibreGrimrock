@@ -119,6 +119,27 @@ OggDecodingThreadAL::~OggDecodingThreadAL()
 {
     delete[] m_pDecodeBuffer;
 }
+// 0x080f52b0: fills the decode buffer from the stream; false when the stream ended (or
+// failed) before the buffer was full, size is what was decoded either way
+bool OggDecodingThreadAL::vorbisDecodeBuffer(OggVorbis_File* file, char* buffer, int* size)
+{
+    int decoded = 0;
+    do
+    {
+        int bitstream;
+        int read = ov_read(file, buffer + decoded, DecodeBufferSize - decoded, 0, 2, 1, &bitstream);
+        if (read <= 0)
+        {
+            if (read != 0)
+                debugPrint("AudioStreamAL: error while reading (%d)\n", read);
+            *size = decoded;
+            return false;
+        }
+        decoded += read;
+    } while (decoded < DecodeBufferSize);
+    *size = decoded;
+    return true;
+}
 // 0x080f6100
 void OggDecodingThreadAL::run()
 {
@@ -141,26 +162,14 @@ void OggDecodingThreadAL::run()
             if (buffer == 0)
                 break;
             int size = 0;
-            for (;;)
+            if (!vorbisDecodeBuffer(&m_file, m_pDecodeBuffer, &size))
             {
-                int bitstream;
-                int read = ov_read(&m_file, m_pDecodeBuffer + size, DecodeBufferSize - size, 0, 2,
-                                   1, &bitstream);
-                if (read <= 0)
-                {
-                    if (read != 0)
-                        debugPrint("AudioStreamAL: error while reading (%d)\n", read);
-                    else if (getenv("GRIMROCK_DEBUG_AUDIO"))
-                        debugPrint("AudioStreamAL: end of stream, loop %d\n", m_loop);
-                    if (m_loop)
-                        ov_raw_seek(&m_file, 0);
-                    else
-                        running = false;
-                    break;
-                }
-                size += read;
-                if (size >= DecodeBufferSize)
-                    break;
+                if (getenv("GRIMROCK_DEBUG_AUDIO"))
+                    debugPrint("AudioStreamAL: end of stream, loop %d\n", m_loop);
+                if (m_loop)
+                    ov_raw_seek(&m_file, 0);
+                else
+                    running = false;
             }
             alBufferData(buffer, AL_FORMAT_STEREO16, m_pDecodeBuffer, size, m_file.vi->rate);
             alSourceQueueBuffers(m_source, 1, &buffer);
