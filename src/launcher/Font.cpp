@@ -28,6 +28,8 @@ static std::string findFontFile(const char* pattern)
             FcPatternDestroy(match);
         }
         FcPatternDestroy(request);
+        // the launcher looks up a font or two at start: nothing is kept open after that
+        FcFini();
     }
     if (!file.empty())
         return file;
