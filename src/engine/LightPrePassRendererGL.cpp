@@ -470,101 +470,57 @@ void LightPrePassRendererGL::renderDirectionalLight(const Camera& camera, const 
 // 0x0811a340
 void LightPrePassRendererGL::renderSpotLight(const Camera& camera, const LightEntity& light) {}
 
+// One screen axis of the scissor rectangle of a light sphere, which the original inlines
+// twice into setupPointLightScissorRect: the two planes through the eye that touch the
+// sphere and contain the other axis are projected onto this one, and [lo, hi] shrinks to
+// the pixels between them. coordinate is the light position along the axis, scale the
+// extent of the near plane.
+static void clipScissorAxis(float coordinate, float lightZ, float radius, float scale,
+                            int viewportSize, int& lo, int& hi)
+{
+    float radiusSqr = radius * radius;
+    float negLightZ = -lightZ;
+    float denom = lightZ * lightZ + coordinate * coordinate;
+    float discriminant =
+        coordinate * coordinate * radiusSqr - denom * (radiusSqr - lightZ * lightZ);
+    if (discriminant < 0.0f)
+        return; // the eye is inside the sphere along this axis
+    float sqrtDisc = std::sqrt(discriminant);
+    const float tangentNormals[2] = {(sqrtDisc + radius * coordinate) / denom,
+                                     (radius * coordinate - sqrtDisc) / denom};
+    for (float n : tangentNormals)
+    {
+        float nz = (radius - n * coordinate) / negLightZ;
+        float tangentZ = (denom - radiusSqr) / (negLightZ - (nz / n) * coordinate);
+        if (!(tangentZ < 0.0f))
+            continue; // the tangent point is behind the camera
+        int pixel = (int)(viewportSize * ((nz * scale) / n + 1.0f) * 0.5f);
+        if (coordinate <= -tangentZ * nz / n)
+        {
+            if (pixel < hi)
+                hi = pixel;
+        }
+        else if (pixel > lo)
+        {
+            lo = pixel;
+        }
+    }
+}
+
 // 0x0811a8c0: scissor rectangle of a sphere in view space (Lengyel's method).
 int LightPrePassRendererGL::setupPointLightScissorRect(const Camera& camera, const Vec3& lightPos,
                                                        float radius)
 {
-    float radiusSqr = radius * radius;
     int viewportWidth = m_viewportWidth, viewportHeight = m_viewportHeight;
-    float negLightZ = -lightPos.z;
-    float lightZSqr = lightPos.z * lightPos.z;
+    // the corner of the near plane in view space gives the extent of the frustum
     const float* invProj = camera.getInverseProjectionMatrix().m;
-    // corner of the near plane in view space
     float invW = 1.0f / (invProj[3] + invProj[7] + invProj[15]);
     float nearZ = (invProj[2] + invProj[6] + invProj[14]) * invW;
+    float xScale = nearZ / ((invProj[0] + invProj[4] + invProj[12]) * invW);
+    float yScale = nearZ / ((invProj[1] + invProj[5] + invProj[13]) * invW);
     int xmin = 0, xmax = viewportWidth, ymin = 0, ymax = viewportHeight;
-    {
-        float denom = lightZSqr + lightPos.x * lightPos.x;
-        float discriminant = lightPos.x * lightPos.x * radiusSqr - denom * (radiusSqr - lightZSqr);
-        if (discriminant >= 0.0f)
-        {
-            float xScale = nearZ / ((invProj[0] + invProj[4] + invProj[12]) * invW);
-            float sqrtDisc = std::sqrt(discriminant);
-            float nx1 = (sqrtDisc + radius * lightPos.x) / denom,
-                  nx2 = (radius * lightPos.x - sqrtDisc) / denom;
-            float nz1 = (radius - nx1 * lightPos.x) / negLightZ,
-                  nz2 = (radius - nx2 * lightPos.x) / negLightZ;
-            float pz1 = (denom - radiusSqr) / (negLightZ - (nz1 / nx1) * lightPos.x);
-            float pz2 = (denom - radiusSqr) / (negLightZ - (nz2 / nx2) * lightPos.x);
-            if (pz1 < 0.0f)
-            {
-                int x = (int)(viewportWidth * ((nz1 * xScale) / nx1 + 1.0f) * 0.5f);
-                if (lightPos.x <= -pz1 * nz1 / nx1)
-                {
-                    if (x < xmax)
-                        xmax = x;
-                }
-                else if (x > xmin)
-                {
-                    xmin = x;
-                }
-            }
-            if (pz2 < 0.0f)
-            {
-                int x = (int)(viewportWidth * ((nz2 * xScale) / nx2 + 1.0f) * 0.5f);
-                if (lightPos.x <= -pz2 * nz2 / nx2)
-                {
-                    if (x < xmax)
-                        xmax = x;
-                }
-                else if (x > xmin)
-                {
-                    xmin = x;
-                }
-            }
-        }
-    }
-    {
-        float denom = lightZSqr + lightPos.y * lightPos.y;
-        float discriminant = lightPos.y * lightPos.y * radiusSqr - (radiusSqr - lightZSqr) * denom;
-        if (discriminant >= 0.0f)
-        {
-            float yScale = nearZ / ((invProj[1] + invProj[5] + invProj[13]) * invW);
-            float sqrtDisc = std::sqrt(discriminant);
-            float ny1 = (sqrtDisc + radius * lightPos.y) / denom,
-                  ny2 = (radius * lightPos.y - sqrtDisc) / denom;
-            float nz1 = (radius - ny1 * lightPos.y) / negLightZ,
-                  nz2 = (radius - ny2 * lightPos.y) / negLightZ;
-            float pz1 = (denom - radiusSqr) / (negLightZ - (nz1 / ny1) * lightPos.y);
-            float pz2 = (denom - radiusSqr) / (negLightZ - (nz2 / ny2) * lightPos.y);
-            if (pz1 < 0.0f)
-            {
-                int y = (int)(viewportHeight * ((yScale * nz1) / ny1 + 1.0f) * 0.5f);
-                if (lightPos.y <= -pz1 * nz1 / ny1)
-                {
-                    if (y < ymax)
-                        ymax = y;
-                }
-                else if (y > ymin)
-                {
-                    ymin = y;
-                }
-            }
-            if (pz2 < 0.0f)
-            {
-                int y = (int)(viewportHeight * ((yScale * nz2) / ny2 + 1.0f) * 0.5f);
-                if (lightPos.y <= -pz2 * nz2 / ny2)
-                {
-                    if (y < ymax)
-                        ymax = y;
-                }
-                else if (y > ymin)
-                {
-                    ymin = y;
-                }
-            }
-        }
-    }
+    clipScissorAxis(lightPos.x, lightPos.z, radius, xScale, viewportWidth, xmin, xmax);
+    clipScissorAxis(lightPos.y, lightPos.z, radius, yScale, viewportHeight, ymin, ymax);
     int height = ymax - ymin;
     if (height <= 0)
         return 0;

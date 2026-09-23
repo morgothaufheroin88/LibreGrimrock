@@ -585,8 +585,8 @@ Array<SharedPtr<Material>> RenderableMeshGL::getMaterials() const
 void RenderableMeshGL::activate()
 {
     glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, m_stride, 0);
+    glEnableVertexAttribArray(ShaderProgramGL::A_position);
+    glVertexAttribPointer(ShaderProgramGL::A_position, 3, GL_FLOAT, GL_FALSE, m_stride, 0);
     const int offsets[4] = {m_normalOffset, m_tangentOffset, m_bitangentOffset, m_texcoordOffset};
     for (int a = 0; a < 4; ++a)
     {
@@ -603,17 +603,17 @@ void RenderableMeshGL::activate()
     }
     if (!m_skinned)
     {
-        glDisableVertexAttribArray(6);
-        glDisableVertexAttribArray(7);
+        glDisableVertexAttribArray(ShaderProgramGL::A_boneIndices);
+        glDisableVertexAttribArray(ShaderProgramGL::A_boneWeights);
     }
     else
     {
-        glEnableVertexAttribArray(6);
-        glVertexAttribPointer(6, 4, GL_UNSIGNED_BYTE, GL_FALSE, m_stride,
-                              (const void*)(intptr_t)m_boneIndicesOffset);
-        glEnableVertexAttribArray(7);
-        glVertexAttribPointer(7, 4, GL_UNSIGNED_BYTE, GL_FALSE, m_stride,
-                              (const void*)(intptr_t)m_boneWeightsOffset);
+        glEnableVertexAttribArray(ShaderProgramGL::A_boneIndices);
+        glVertexAttribPointer(ShaderProgramGL::A_boneIndices, 4, GL_UNSIGNED_BYTE, GL_FALSE,
+                              m_stride, (const void*)(intptr_t)m_boneIndicesOffset);
+        glEnableVertexAttribArray(ShaderProgramGL::A_boneWeights);
+        glVertexAttribPointer(ShaderProgramGL::A_boneWeights, 4, GL_UNSIGNED_BYTE, GL_FALSE,
+                              m_stride, (const void*)(intptr_t)m_boneWeightsOffset);
     }
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
 }

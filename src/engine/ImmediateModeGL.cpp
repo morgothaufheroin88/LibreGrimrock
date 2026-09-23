@@ -106,12 +106,15 @@ void ImmediateModeGL::drawInternal(int primitive, const IMVertex* verts, int cou
                                    RenderableTexture* texture)
 {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(4);
-    glEnableVertexAttribArray(5);
-    glVertexAttribPointer(0, threeDee ? 3 : 2, GL_FLOAT, GL_FALSE, sizeof(IMVertex), &verts[0].pos);
-    glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(IMVertex), &verts[0].u);
-    glVertexAttribPointer(5, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(IMVertex), &verts[0].color);
+    glEnableVertexAttribArray(ShaderProgramGL::A_position);
+    glEnableVertexAttribArray(ShaderProgramGL::A_texcoord);
+    glEnableVertexAttribArray(ShaderProgramGL::A_color);
+    glVertexAttribPointer(ShaderProgramGL::A_position, threeDee ? 3 : 2, GL_FLOAT, GL_FALSE,
+                          sizeof(IMVertex), &verts[0].pos);
+    glVertexAttribPointer(ShaderProgramGL::A_texcoord, 2, GL_FLOAT, GL_FALSE, sizeof(IMVertex),
+                          &verts[0].u);
+    glVertexAttribPointer(ShaderProgramGL::A_color, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(IMVertex),
+                          &verts[0].color);
     m_pContext->useProgram(texture ? m_pTexProgram : m_pProgram);
     glDisable(GL_CULL_FACE);
     m_pContext->setBlendMode(m_blendMode);
@@ -159,9 +162,9 @@ void ImmediateModeGL::drawInternal(int primitive, const IMVertex* verts, int cou
     }
     m_pContext->getProgram()->setUniform(ShaderProgramGL::U_modelViewProj, mvp);
     m_pContext->drawArrays(primitive, 0, count);
-    glDisableVertexAttribArray(0);
-    glDisableVertexAttribArray(4);
-    glDisableVertexAttribArray(5);
+    glDisableVertexAttribArray(ShaderProgramGL::A_position);
+    glDisableVertexAttribArray(ShaderProgramGL::A_texcoord);
+    glDisableVertexAttribArray(ShaderProgramGL::A_color);
 }
 
 } // namespace engine

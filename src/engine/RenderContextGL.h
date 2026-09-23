@@ -98,6 +98,21 @@ class ShaderProgramGL
         U_lightColor,
         NumUniforms = 21
     };
+    // vertex attribute locations, bound by name to the shaders (g_attribNames)
+    enum Attribute
+    {
+        A_position = 0,
+        A_normal,
+        A_tangent,
+        A_bitangent,
+        A_texcoord,
+        A_color,
+        A_boneIndices,
+        A_boneWeights,
+        A_velocity,
+        A_particleParms,
+        NumAttributes
+    };
     ShaderProgramGL(GLuint vertexShader, GLuint fragmentShader);
     ShaderProgramGL(const char* vertexFile, const char* fragmentFile);
     ~ShaderProgramGL();

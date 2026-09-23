@@ -105,7 +105,7 @@ TextureCubeGL::~TextureCubeGL() {}
 
 // ---- shaders ---------------------------------------------------------------------
 
-static constexpr const char* g_attribNames[10] = {
+static constexpr const char* g_attribNames[ShaderProgramGL::NumAttributes] = {
     "position", "normal",      "tangent",     "bitangent", "texcoord",
     "color",    "boneIndices", "boneWeights", "velocity",  "particleParms"};
 static constexpr const char* g_uniformNames[ShaderProgramGL::NumUniforms] = {
@@ -118,7 +118,7 @@ static constexpr const char* g_uniformNames[ShaderProgramGL::NumUniforms] = {
 
 void ShaderProgramGL::bindAttributesAndUniforms()
 {
-    for (int i = 0; i < 10; ++i)
+    for (int i = 0; i < NumAttributes; ++i)
         glBindAttribLocation(m_program, i, g_attribNames[i]);
     linkProgram(m_program);
     for (int i = 0; i < NumUniforms; ++i)
@@ -330,10 +330,10 @@ void RenderContextGL::drawArrays(int primitive, int first, int count)
 void RenderContextGL::drawRect()
 {
     static constexpr float verts[8] = {-1, 1, 1, 1, 1, -1, -1, -1};
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8, verts);
+    glEnableVertexAttribArray(ShaderProgramGL::A_position);
+    glVertexAttribPointer(ShaderProgramGL::A_position, 2, GL_FLOAT, GL_FALSE, 8, verts);
     glDrawArrays(GL_QUADS, 0, 4);
-    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(ShaderProgramGL::A_position);
 }
 // 0x08118410
 void RenderContextGL::drawMesh(RenderableMeshGL& mesh)
@@ -341,7 +341,7 @@ void RenderContextGL::drawMesh(RenderableMeshGL& mesh)
     mesh.activate();
     for (int i = 0; i < mesh.getNumSegments(); ++i)
         mesh.renderSegment(i);
-    for (int i = 0; i < 10; ++i)
+    for (int i = 0; i < ShaderProgramGL::NumAttributes; ++i)
         glDisableVertexAttribArray(i);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);

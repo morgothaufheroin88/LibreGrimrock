@@ -95,14 +95,18 @@ void ParticleSystemRendererGL::renderParticleSystem(const Camera& camera,
         if (!out)
             continue;
         glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), &out->pos);
-        glEnableVertexAttribArray(8);
-        glVertexAttribPointer(8, 3, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), &out->velocity);
-        glEnableVertexAttribArray(4);
-        glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), &out->u);
-        glEnableVertexAttribArray(9);
-        glVertexAttribPointer(9, 4, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), &out->time);
+        glEnableVertexAttribArray(ShaderProgramGL::A_position);
+        glVertexAttribPointer(ShaderProgramGL::A_position, 3, GL_FLOAT, GL_FALSE,
+                              sizeof(ParticleVertex), &out->pos);
+        glEnableVertexAttribArray(ShaderProgramGL::A_velocity);
+        glVertexAttribPointer(ShaderProgramGL::A_velocity, 3, GL_FLOAT, GL_FALSE,
+                              sizeof(ParticleVertex), &out->velocity);
+        glEnableVertexAttribArray(ShaderProgramGL::A_texcoord);
+        glVertexAttribPointer(ShaderProgramGL::A_texcoord, 2, GL_FLOAT, GL_FALSE,
+                              sizeof(ParticleVertex), &out->u);
+        glEnableVertexAttribArray(ShaderProgramGL::A_particleParms);
+        glVertexAttribPointer(ShaderProgramGL::A_particleParms, 4, GL_FLOAT, GL_FALSE,
+                              sizeof(ParticleVertex), &out->time);
         const Array<Particle>& particles = state->getParticles();
         int numQuads = 0;
         static constexpr float corners[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};

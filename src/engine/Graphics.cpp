@@ -50,10 +50,10 @@ void GraphicsGL::drawRect()
 {
     static constexpr float verts[8] = {-1, 1, 1, 1, 1, -1, -1, -1};
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8, verts);
+    glEnableVertexAttribArray(ShaderProgramGL::A_position);
+    glVertexAttribPointer(ShaderProgramGL::A_position, 2, GL_FLOAT, GL_FALSE, 8, verts);
     glDrawArrays(GL_QUADS, 0, 4);
-    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(ShaderProgramGL::A_position);
 }
 
 // 0x08117fb0
