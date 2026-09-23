@@ -164,6 +164,12 @@ int runLauncherWindow(GameLibrary& library, const std::vector<char*>& args)
     int game;
     {
         LauncherWindow window(library);
+        if (!window.isOpen())
+        {
+            fail(std::string("Cannot open the launcher window: ") + SDL_GetError());
+            SDL_Quit();
+            return 1;
+        }
         game = window.run();
     }
     SDL_Quit();

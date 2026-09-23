@@ -6,7 +6,6 @@
 #include "GameLibrary.h"
 #include <SDL3/SDL.h>
 #include <memory>
-#include <mutex>
 #include <string>
 
 namespace launcher
@@ -17,6 +16,11 @@ class LauncherWindow
   public:
     explicit LauncherWindow(GameLibrary& library);
     ~LauncherWindow();
+    // false when the window or its renderer could not be created
+    bool isOpen() const
+    {
+        return m_window && m_renderer;
+    }
 
     // runs until the player picks a game (its number) or closes the window (0)
     int run();
@@ -40,9 +44,9 @@ class LauncherWindow
     void fillRect(const SDL_FRect& rect, SDL_Color color);
     void outlineRect(const SDL_FRect& rect, SDL_Color color, float thickness);
     bool isAvailable(int index) const;
-    // opens the folder dialog for a game; the answer arrives on the dialog's thread
+    // opens the folder dialog for a game; the answer arrives on the dialog's thread and is
+    // picked up by the next frame
     void locate(int index);
-    static void SDLCALL onFolderChosen(void* userdata, const char* const* files, int filter);
     void takeChosenFolder();
 
     GameLibrary& m_library;
@@ -57,11 +61,6 @@ class LauncherWindow
     SDL_FPoint m_mouse;
     Uint64 m_lastClickTime;
     int m_lastClickCard;
-
-    std::mutex m_dialogMutex;
-    int m_dialogGame;           // the game a folder dialog is open for, 0 = none
-    std::string m_chosenFolder; // written by the dialog thread
-    bool m_folderAnswered;
 };
 
 } // namespace launcher

@@ -1,6 +1,8 @@
 #include "LauncherWindow.h"
 #include "GameIcon.h"
 #include <cstdlib>
+#include <mutex>
+#include <string>
 
 namespace launcher
 {
@@ -38,15 +40,38 @@ bool contains(const SDL_FRect& rect, SDL_FPoint point)
     return SDL_PointInRectFloat(&point, &rect);
 }
 
+// The folder dialog answers on its own thread, possibly after the window is gone (the
+// player closed the launcher with the dialog open), so its state outlives any window.
+struct FolderDialog
+{
+    std::mutex mutex;
+    int game = 0; // the game a dialog is open for, 0 = none
+    bool answered = false;
+    std::string folder; // empty = cancelled
+};
+FolderDialog g_folderDialog;
+
+void SDLCALL onFolderChosen(void* userdata, const char* const* files, int)
+{
+    FolderDialog* dialog = (FolderDialog*)userdata;
+    std::lock_guard<std::mutex> lock(dialog->mutex);
+    dialog->folder = files && files[0] ? files[0] : "";
+    dialog->answered = true;
+}
+
 } // namespace
 
 LauncherWindow::LauncherWindow(GameLibrary& library)
     : m_library(library), m_window(nullptr), m_renderer(nullptr), m_selected(0),
-      m_mouse{-1.0f, -1.0f}, m_lastClickTime(0), m_lastClickCard(-1), m_dialogGame(0),
-      m_folderAnswered(false)
+      m_mouse{-1.0f, -1.0f}, m_lastClickTime(0), m_lastClickCard(-1)
 {
-    SDL_CreateWindowAndRenderer("LibreGrimrock", WindowWidth, WindowHeight, 0, &m_window,
-                                &m_renderer);
+    if (!SDL_CreateWindowAndRenderer("LibreGrimrock", WindowWidth, WindowHeight, 0, &m_window,
+                                     &m_renderer))
+    {
+        m_window = nullptr;
+        m_renderer = nullptr;
+        return;
+    }
     SDL_SetRenderVSync(m_renderer, 1);
     SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
     m_titleFont.reset(new Font(m_renderer, "serif:bold", 34));
@@ -70,8 +95,10 @@ LauncherWindow::~LauncherWindow()
     m_cardFont.reset();
     m_textFont.reset();
     m_smallFont.reset();
-    SDL_DestroyRenderer(m_renderer);
-    SDL_DestroyWindow(m_window);
+    if (m_renderer)
+        SDL_DestroyRenderer(m_renderer);
+    if (m_window)
+        SDL_DestroyWindow(m_window);
 }
 
 void LauncherWindow::layout()
@@ -195,38 +222,35 @@ int LauncherWindow::run()
 void LauncherWindow::locate(int index)
 {
     {
-        std::lock_guard<std::mutex> lock(m_dialogMutex);
-        if (m_dialogGame)
+        std::lock_guard<std::mutex> lock(g_folderDialog.mutex);
+        if (g_folderDialog.game)
             return; // one dialog at a time
-        m_dialogGame = Games[index].number;
-        m_folderAnswered = false;
+        g_folderDialog.game = Games[index].number;
+        g_folderDialog.answered = false;
     }
     const GameInstall& install = m_library.getInstall(Games[index].number);
     std::string start =
         install.directory.empty() ? m_library.getLauncherDirectory() : install.directory;
     // unlocked: without a dialog backend SDL answers at once, on this thread
-    SDL_ShowOpenFolderDialog(onFolderChosen, this, m_window, start.c_str(), false);
-}
-
-void SDLCALL LauncherWindow::onFolderChosen(void* userdata, const char* const* files, int)
-{
-    LauncherWindow* self = (LauncherWindow*)userdata;
-    std::lock_guard<std::mutex> lock(self->m_dialogMutex);
-    self->m_chosenFolder = files && files[0] ? files[0] : "";
-    self->m_folderAnswered = true;
+    SDL_ShowOpenFolderDialog(onFolderChosen, &g_folderDialog, m_window, start.c_str(), false);
 }
 
 void LauncherWindow::takeChosenFolder()
 {
-    std::lock_guard<std::mutex> lock(m_dialogMutex);
-    if (!m_dialogGame || !m_folderAnswered)
-        return;
-    int game = m_dialogGame;
-    m_dialogGame = 0;
-    if (m_chosenFolder.empty())
+    int game;
+    std::string folder;
+    {
+        std::lock_guard<std::mutex> lock(g_folderDialog.mutex);
+        if (!g_folderDialog.game || !g_folderDialog.answered)
+            return;
+        game = g_folderDialog.game;
+        folder = g_folderDialog.folder;
+        g_folderDialog.game = 0;
+    }
+    if (folder.empty())
         return; // cancelled
     Card& card = m_cards[game - 1];
-    if (m_library.setInstall(game, m_chosenFolder))
+    if (m_library.setInstall(game, folder))
     {
         card.message.clear();
         loadIcons();
