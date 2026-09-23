@@ -208,8 +208,12 @@ Font::~Font()
 // 0x080dc190
 int Font::getWidth(const char* text) const
 {
-    return getWidth(text, (int)strlen(text));
+    int width = 0;
+    for (const unsigned char* c = (const unsigned char*)text; *c; ++c)
+        width += m_glyphs[*c].advance;
+    return width;
 }
+// the width of the first length characters, for the second game's text layout
 int Font::getWidth(const char* text, int length) const
 {
     int width = 0;
