@@ -252,6 +252,8 @@ void RenderableTextureGL::load(const char* filename, int skipMipLevels, bool srg
             format = GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT;
             break;
         case GL_RGBA:
+            // the original clears the flag here and adds GL_SRGB_ALPHA back where it uploads
+            // (0x08112760), so every uncompressed surface is swizzled after all
             format = GL_SRGB_ALPHA;
             swapRedBlue = false;
             break;
