@@ -310,6 +310,36 @@ static int Steam_update(lua_State* L)
     return 0;
 }
 
+// The fields of the event and call result tables; beginResult writes the result code and
+// says whether the rest follows (only for an OK result).
+static bool beginResult(lua_State* L, EResult result)
+{
+    lua_createtable(L, 0, 0);
+    luax::pushEnum(L, result, g_steamResultCodes);
+    lua_setfield(L, -2, "result");
+    return result == k_EResultOK;
+}
+static void setNumber(lua_State* L, const char* field, lua_Number value)
+{
+    lua_pushnumber(L, value);
+    lua_setfield(L, -2, field);
+}
+static void setString(lua_State* L, const char* field, const char* value)
+{
+    lua_pushstring(L, value);
+    lua_setfield(L, -2, field);
+}
+static void setBoolean(lua_State* L, const char* field, bool value)
+{
+    lua_pushboolean(L, value);
+    lua_setfield(L, -2, field);
+}
+static void setUInt64(lua_State* L, const char* field, uint64 value)
+{
+    luax::pushUInt64(L, value);
+    lua_setfield(L, -2, field);
+}
+
 // 0x081323b0: pops the oldest event as a table {type=..., ...}, nil when there is none.
 static int Steam_pollEvents(lua_State* L)
 {
@@ -339,17 +369,13 @@ static int Steam_pollEvents(lua_State* L)
         lua_setfield(L, -2, "result");
         break;
     case SteamEvent::AchievementStored:
-        lua_pushstring(L, e.achievementStored.m_rgchAchievementName);
-        lua_setfield(L, -2, "achievementName");
-        lua_pushnumber(L, e.achievementStored.m_nCurProgress);
-        lua_setfield(L, -2, "curProgress");
-        lua_pushnumber(L, e.achievementStored.m_nMaxProgress);
-        lua_setfield(L, -2, "maxProgress");
+        setString(L, "achievementName", e.achievementStored.m_rgchAchievementName);
+        setNumber(L, "curProgress", e.achievementStored.m_nCurProgress);
+        setNumber(L, "maxProgress", e.achievementStored.m_nMaxProgress);
         break;
     case SteamEvent::FileSubscribed:
     case SteamEvent::FileUnsubscribed:
-        luax::pushUInt64(L, e.fileSubscribed.m_nPublishedFileId);
-        lua_setfield(L, -2, "publishedFileId");
+        setUInt64(L, "publishedFileId", e.fileSubscribed.m_nPublishedFileId);
         break;
     default:
         luaL_error(L, "invalid steam event type");
@@ -604,134 +630,82 @@ static int Steam_getAPICallResult(lua_State* L)
     {
         RemoteStoragePublishFileResult_t r;
         getCallResult(L, handle, r);
-        lua_createtable(L, 0, 0);
-        luax::pushEnum(L, r.m_eResult, g_steamResultCodes);
-        lua_setfield(L, -2, "result");
-        if (r.m_eResult == k_EResultOK)
-        {
-            luax::pushUInt64(L, r.m_nPublishedFileId);
-            lua_setfield(L, -2, "publishedFileId");
-        }
+        if (beginResult(L, r.m_eResult))
+            setUInt64(L, "publishedFileId", r.m_nPublishedFileId);
         return 1;
     }
     case UpdatePublishedFile:
     {
         RemoteStorageUpdatePublishedFileResult_t r;
         getCallResult(L, handle, r);
-        lua_createtable(L, 0, 0);
-        luax::pushEnum(L, r.m_eResult, g_steamResultCodes);
-        lua_setfield(L, -2, "result");
-        if (r.m_eResult == k_EResultOK)
-        {
-            luax::pushUInt64(L, r.m_nPublishedFileId);
-            lua_setfield(L, -2, "publishedFileId");
-        }
+        if (beginResult(L, r.m_eResult))
+            setUInt64(L, "publishedFileId", r.m_nPublishedFileId);
         return 1;
     }
     case DeletePublishedFile:
     {
         RemoteStorageDeletePublishedFileResult_t r;
         getCallResult(L, handle, r);
-        lua_createtable(L, 0, 0);
-        luax::pushEnum(L, r.m_eResult, g_steamResultCodes);
-        lua_setfield(L, -2, "result");
-        if (r.m_eResult == k_EResultOK)
-        {
-            luax::pushUInt64(L, r.m_nPublishedFileId);
-            lua_setfield(L, -2, "publishedFileId");
-        }
+        if (beginResult(L, r.m_eResult))
+            setUInt64(L, "publishedFileId", r.m_nPublishedFileId);
         return 1;
     }
     case GetPublishedFileDetails:
     {
         RemoteStorageGetPublishedFileDetailsResult_t r;
         getCallResult(L, handle, r);
-        lua_createtable(L, 0, 0);
-        luax::pushEnum(L, r.m_eResult, g_steamResultCodes);
-        lua_setfield(L, -2, "result");
-        if (r.m_eResult != k_EResultOK)
+        if (!beginResult(L, r.m_eResult))
             return 1;
-        luax::pushUInt64(L, r.m_nPublishedFileId);
-        lua_setfield(L, -2, "publishedFileId");
-        lua_pushnumber(L, r.m_nCreatorAppID);
-        lua_setfield(L, -2, "creatorAppID");
-        lua_pushnumber(L, r.m_nConsumerAppID);
-        lua_setfield(L, -2, "consumerAppID");
-        lua_pushstring(L, r.m_rgchTitle);
-        lua_setfield(L, -2, "title");
-        lua_pushstring(L, r.m_rgchDescription);
-        lua_setfield(L, -2, "description");
-        luax::pushUInt64(L, r.m_hFile);
-        lua_setfield(L, -2, "fileHandle");
-        luax::pushUInt64(L, r.m_hPreviewFile);
-        lua_setfield(L, -2, "previewFileHandle");
-        luax::pushUInt64(L, r.m_ulSteamIDOwner);
-        lua_setfield(L, -2, "steamIDOwner");
-        lua_pushnumber(L, r.m_rtimeCreated);
-        lua_setfield(L, -2, "timeCreated");
-        lua_pushnumber(L, r.m_rtimeUpdated);
-        lua_setfield(L, -2, "timeUpdated");
+        setUInt64(L, "publishedFileId", r.m_nPublishedFileId);
+        setNumber(L, "creatorAppID", r.m_nCreatorAppID);
+        setNumber(L, "consumerAppID", r.m_nConsumerAppID);
+        setString(L, "title", r.m_rgchTitle);
+        setString(L, "description", r.m_rgchDescription);
+        setUInt64(L, "fileHandle", r.m_hFile);
+        setUInt64(L, "previewFileHandle", r.m_hPreviewFile);
+        setUInt64(L, "steamIDOwner", r.m_ulSteamIDOwner);
+        setNumber(L, "timeCreated", r.m_rtimeCreated);
+        setNumber(L, "timeUpdated", r.m_rtimeUpdated);
         luax::pushEnum(L, r.m_eVisibility, g_visibilities);
         lua_setfield(L, -2, "visibility");
-        lua_pushboolean(L, r.m_bBanned);
-        lua_setfield(L, -2, "banned");
-        lua_pushstring(L, r.m_rgchTags);
-        lua_setfield(L, -2, "tags");
-        lua_pushboolean(L, r.m_bTagsTruncated);
-        lua_setfield(L, -2, "tagsTruncated");
-        lua_pushstring(L, r.m_pchFileName);
-        lua_setfield(L, -2, "filename");
-        lua_pushnumber(L, r.m_nFileSize);
-        lua_setfield(L, -2, "fileSize");
-        lua_pushnumber(L, r.m_nPreviewFileSize);
-        lua_setfield(L, -2, "previewFileSize");
-        lua_pushstring(L, r.m_rgchURL);
-        lua_setfield(L, -2, "URL");
+        setBoolean(L, "banned", r.m_bBanned);
+        setString(L, "tags", r.m_rgchTags);
+        setBoolean(L, "tagsTruncated", r.m_bTagsTruncated);
+        setString(L, "filename", r.m_pchFileName);
+        setNumber(L, "fileSize", r.m_nFileSize);
+        setNumber(L, "previewFileSize", r.m_nPreviewFileSize);
+        setString(L, "URL", r.m_rgchURL);
         return 1;
     }
     case EnumerateUserPublishedFiles:
     {
         RemoteStorageEnumerateUserPublishedFilesResult_t r;
         getCallResult(L, handle, r);
-        lua_createtable(L, 0, 0);
-        luax::pushEnum(L, r.m_eResult, g_steamResultCodes);
-        lua_setfield(L, -2, "result");
-        if (r.m_eResult != k_EResultOK)
-            return 1;
-        pushPublishedFileIds(L, r.m_rgPublishedFileId, r.m_nResultsReturned, r.m_nTotalResultCount);
+        if (beginResult(L, r.m_eResult))
+            pushPublishedFileIds(L, r.m_rgPublishedFileId, r.m_nResultsReturned,
+                                 r.m_nTotalResultCount);
         return 1;
     }
     case EnumerateUserSubscribedFiles:
     {
         RemoteStorageEnumerateUserSubscribedFilesResult_t r;
         getCallResult(L, handle, r);
-        lua_createtable(L, 0, 0);
-        luax::pushEnum(L, r.m_eResult, g_steamResultCodes);
-        lua_setfield(L, -2, "result");
-        if (r.m_eResult != k_EResultOK)
-            return 1;
-        pushPublishedFileIds(L, r.m_rgPublishedFileId, r.m_nResultsReturned, r.m_nTotalResultCount);
+        if (beginResult(L, r.m_eResult))
+            pushPublishedFileIds(L, r.m_rgPublishedFileId, r.m_nResultsReturned,
+                                 r.m_nTotalResultCount);
         return 1;
     }
     case DownloadUGC:
     {
         RemoteStorageDownloadUGCResult_t r;
         getCallResult(L, handle, r);
-        lua_createtable(L, 0, 0);
-        luax::pushEnum(L, r.m_eResult, g_steamResultCodes);
-        lua_setfield(L, -2, "result");
-        if (r.m_eResult != k_EResultOK)
+        if (!beginResult(L, r.m_eResult))
             return 1;
-        luax::pushUInt64(L, r.m_hFile);
-        lua_setfield(L, -2, "file");
-        lua_pushnumber(L, r.m_nAppID);
-        lua_setfield(L, -2, "appID");
-        lua_pushnumber(L, r.m_nSizeInBytes);
-        lua_setfield(L, -2, "sizeInBytes");
-        lua_pushstring(L, r.m_pchFileName);
-        lua_setfield(L, -2, "filename");
-        luax::pushUInt64(L, r.m_ulSteamIDOwner);
-        lua_setfield(L, -2, "steamIDOwner");
+        setUInt64(L, "file", r.m_hFile);
+        setNumber(L, "appID", r.m_nAppID);
+        setNumber(L, "sizeInBytes", r.m_nSizeInBytes);
+        setString(L, "filename", r.m_pchFileName);
+        setUInt64(L, "steamIDOwner", r.m_ulSteamIDOwner);
         return 1;
     }
     default:

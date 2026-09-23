@@ -190,6 +190,78 @@ static float displayRefreshRate(double now)
     return rate;
 }
 
+// Debugging aid: GRIMROCK_DEBUG_LUA runs a chunk from the given frame on
+// (GRIMROCK_DEBUG_LUA_FRAME, 600 by default) until it returns a true value, which is how
+// the save/load paths are exercised without clicking through the menus: the chunk waits
+// for the state it needs and then reports it is done.
+static void runDebugLua(lua_State* L, int traceback)
+{
+    static const char* debugLua = getenv("GRIMROCK_DEBUG_LUA");
+    static const int debugLuaFrame =
+        getenv("GRIMROCK_DEBUG_LUA_FRAME") ? atoi(getenv("GRIMROCK_DEBUG_LUA_FRAME")) : 600;
+    static bool done = false;
+    if (!debugLua || done || g_frameCounter < (unsigned long)debugLuaFrame)
+        return;
+    if (g_frameCounter == (unsigned long)debugLuaFrame)
+        debugPrint("GRIMROCK_DEBUG_LUA: %s\n", debugLua);
+    if (luaL_loadstring(L, debugLua) != 0 || lua_pcall(L, 0, 1, traceback) != 0)
+    {
+        debugPrint("GRIMROCK_DEBUG_LUA failed: %s\n", lua_tostring(L, -1));
+        done = true;
+    }
+    else
+    {
+        done = lua_toboolean(L, -1) != 0;
+    }
+    lua_pop(L, 1);
+}
+
+// With the stall watchdog on: the Lua heap, the resident size and the live shared objects
+// every 10 s, and every frame that took longer than the threshold.
+static void reportFrame(lua_State* L, double frameStart)
+{
+    if (!g_stallThresholdMs)
+        return;
+    static double nextReport = 0.0;
+    double now = sysGetSeconds(sysClock());
+    if (now >= nextReport)
+    {
+        nextReport = now + 10.0;
+        long pages = 0, resident = 0;
+        if (FILE* statm = fopen("/proc/self/statm", "r"))
+        {
+            if (fscanf(statm, "%ld %ld", &pages, &resident) != 2)
+                resident = 0;
+            fclose(statm);
+        }
+        debugPrint("--- heap: lua %d KB, rss %ld MB, shared objects %d\n",
+                   lua_gc(L, LUA_GCCOUNT, 0), resident * sysconf(_SC_PAGESIZE) / (1024 * 1024),
+                   SharedPtrBase::objectCount());
+    }
+    double frameMs = now * 1000.0 - frameStart * 1000.0;
+    if (frameMs > g_stallThresholdMs)
+        debugPrint("--- stall: frame took %.0f ms\n", frameMs);
+}
+
+// Frame rate limiter. The original spins until 1/maxFrameRate has passed
+// (sys.setMaxFrameRate, 120 in the shipped config); here the cap is the refresh rate of the
+// display, and the wait sleeps instead of burning a core.
+static void waitForNextFrame(double frameStart, int maxFrameRate)
+{
+    double frameTime = 1.0 / (double)(maxFrameRate > 0 ? maxFrameRate : 1000);
+    float refreshRate = displayRefreshRate(frameStart);
+    if (refreshRate > 0.0f)
+        frameTime = 1.0 / (double)refreshRate;
+    for (;;)
+    {
+        double remaining = frameTime - (sysGetSeconds(sysClock()) - frameStart);
+        if (remaining <= 0.0)
+            break;
+        if (remaining > 0.0015)
+            usleep((useconds_t)((remaining - 0.001) * 1e6));
+    }
+}
+
 // 0x0812c950
 void RapidEngine::enterMainLoop()
 {
@@ -246,66 +318,9 @@ void RapidEngine::enterMainLoop()
             }
             callDisplayFunc(L, traceback);
             ++g_frameCounter;
-            // Debugging aid: GRIMROCK_DEBUG_LUA runs a chunk from the given frame on
-            // (GRIMROCK_DEBUG_LUA_FRAME, 600 by default) until it returns a true value,
-            // which is how the save/load paths are exercised without clicking through the
-            // menus: the chunk waits for the state it needs and then reports it is done.
-            static const char* debugLua = getenv("GRIMROCK_DEBUG_LUA");
-            static const int debugLuaFrame =
-                getenv("GRIMROCK_DEBUG_LUA_FRAME") ? atoi(getenv("GRIMROCK_DEBUG_LUA_FRAME")) : 600;
-            static bool debugLuaDone = false;
-            if (debugLua && !debugLuaDone && g_frameCounter >= (unsigned long)debugLuaFrame)
-            {
-                if (g_frameCounter == (unsigned long)debugLuaFrame)
-                    debugPrint("GRIMROCK_DEBUG_LUA: %s\n", debugLua);
-                if (luaL_loadstring(L, debugLua) != 0 || lua_pcall(L, 0, 1, traceback) != 0)
-                {
-                    debugPrint("GRIMROCK_DEBUG_LUA failed: %s\n", lua_tostring(L, -1));
-                    debugLuaDone = true;
-                }
-                else
-                    debugLuaDone = lua_toboolean(L, -1) != 0;
-                lua_pop(L, 1);
-            }
-            if (g_stallThresholdMs)
-            {
-                static double nextReport = 0.0;
-                double now = sysGetSeconds(sysClock());
-                if (now >= nextReport)
-                {
-                    nextReport = now + 10.0;
-                    FILE* statm = fopen("/proc/self/statm", "r");
-                    long pages = 0, resident = 0;
-                    if (statm)
-                    {
-                        if (fscanf(statm, "%ld %ld", &pages, &resident) != 2)
-                            resident = 0;
-                        fclose(statm);
-                    }
-                    debugPrint("--- heap: lua %d KB, rss %ld MB, shared objects %d\n",
-                               lua_gc(L, LUA_GCCOUNT, 0),
-                               resident * sysconf(_SC_PAGESIZE) / (1024 * 1024),
-                               SharedPtrBase::objectCount());
-                }
-                double frameMs = sysGetSeconds(sysClock()) * 1000.0 - start * 1000.0;
-                if (frameMs > g_stallThresholdMs)
-                    debugPrint("--- stall: frame took %.0f ms\n", frameMs);
-            }
-            // Frame rate limiter. The original spins until 1/maxFrameRate has passed
-            // (sys.setMaxFrameRate, 120 in the shipped config); here the cap is the
-            // refresh rate of the display, and the wait sleeps instead of burning a core.
-            double frameTime = 1.0 / (double)(m_maxFrameRate > 0 ? m_maxFrameRate : 1000);
-            float refreshRate = displayRefreshRate(start);
-            if (refreshRate > 0.0f)
-                frameTime = 1.0 / (double)refreshRate;
-            for (;;)
-            {
-                double remaining = frameTime - (sysGetSeconds(sysClock()) - start);
-                if (remaining <= 0.0)
-                    break;
-                if (remaining > 0.0015)
-                    usleep((useconds_t)((remaining - 0.001) * 1e6));
-            }
+            runDebugLua(L, traceback);
+            reportFrame(L, start);
+            waitForNextFrame(start, m_maxFrameRate);
         }
         lua_close(L);
         shutdownEngine();
